@@ -1,0 +1,45 @@
+% Example of abduction in CHR Grammars by Henning Christiansen
+
+%:- compile(chrg).
+
+
+:- chrg_option(show_rules,on).
+
+:- chrg_abducible food_for/2, categ_of/2, cannibal/1.
+:- chrg_symbols name/1, verb/1, sentence/1, category/1.
+
+/***** test query
+
+parse([garfield,eats,mickey, tom,eats,jerry, jerry,is,mouse,
+       tom,is,cat, mickey,is,mouse]).
+
+********/
+
+%%% Integrity constraints
+
+categ_of(N,C1), categ_of(N,C2) ==> C1=C2.
+food_for(C1,C), food_for(C2,C) ==> C1=C2.
+food_for(C,C) ==> cannibal(C).
+
+%%% Grammar rules
+
+verb(is) -\ [X] <:> category(X).
+
+[tom]     <:> name(tom).
+[jerry]   <:> name(jerry).
+[garfield]  <:> name(garfield).
+[mickey]  <:> name(mickey).
+[is]      <:> verb(is).
+[eats]    <:> verb(eats).
+
+name(N), verb(is), category(T) <:>
+   {categ_of(N,T)},
+   sentence(is(N,T)).
+
+name(N1), verb(eats), name(N2) <:>
+    {categ_of(N1,T1), categ_of(N2,T2), food_for(T1,T2)},
+    sentence(eats(N1,N2)).
+
+
+
+end_of_CHRG_source.

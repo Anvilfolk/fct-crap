@@ -1,0 +1,14 @@
+:- compile(chrg).
+
+:- chrg_option(show_rules, on).
+
+:- chrg_symbols np/0, verb/0, sentence/0.
+
+np, verb, np ::> sentence.
+[peter] ::> np.
+[mary] ::> np.
+[likes] ::> verb.
+
+end_of_CHRG_source.
+
+% parse([peter,likes,mary]).

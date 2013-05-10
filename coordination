@@ -1,0 +1,54 @@
+% Example of Coordination and Tagger-like rules
+% in CHRG by Henning Christiansen
+%:- compile(chrg).
+
+
+:- chrg_symbols 
+  sentence/1, subject/1, object/1, name/1, verb/1.
+
+/***** sample queries
+parse([peter,likes,and,mary,hates,martha]).
+parse([peter,and,paul,likes,mary]).
+parse([martha,likes,and,mary,likes,paul,and,mary,hates,martha]).
+*********/
+
+/************* Example with local ambiguity showing that
+               this grammar is not perfect
+
+parse([peter,and,paul,likes,magda,and,mary,and,martha,likes,brian]).
+
+... goes really wrong
+
+**************/
+%% Tagger-like rules to classify names as subject or object
+
+           name(A) /- verb(_) <:> subject(A).
+verb(_) -\ name(A)            <:>  object(A).
+
+name(A),   [and], subject(B) <:> subject(A+B).
+object(A), [and], name(B)    <:>  object(A+B).
+
+
+%% Complete sentence
+
+subject(A), verb(V), object(B) ::> sentence(s(A,V,B)).
+
+%% Incomplete sentence taking object from what follows
+
+subject(A), verb(V) /- [and], sentence(s(_,_,B))                                          
+  ::> sentence(s(A,V,B)).
+
+% Dictionary
+
+[peter]  <:> name(peter).
+[paul]   <:> name(paul).
+[brian]  <:> name(brian).
+[mary]   <:> name(mary).
+[martha] <:> name(martha).
+[magda]  <:> name(magda).
+[likes]  <:> verb(like).
+[loves]  <:> verb(love).
+[hates]  <:> verb(hate).
+[sees]   <:> verb(see).
+
+end_of_CHRG_source.

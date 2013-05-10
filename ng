@@ -1,0 +1,192 @@
+/* 
+   Aug 08, 2012
+   Veronica Dahl and J.Emilio Miralles
+   Grammar Sanctioning program
+
+   Version 1.15
+     -code cleanups
+     -no longer count unsats
+   Version 1.14
+     -all grammar properties are now constraints of the form g(Prop).
+     -init_grammar procedure now initializes all the g/1 constraints.
+     -these constraints are removed as soon as they are found to be unsatisfied by a sentence.
+     -counting no longer makes sense, as a second instance will never occur.
+   Version 1.13
+     -automate adding of unsat_c counters
+     -add all possible properties
+   Version 1.12
+     -change ambiguous cat/3 symbol to word/3
+     -keep unsat list after readout.
+   Version 1.11
+     -remove unused finished/0 and exclusion/4 constraints
+   Version 1.1
+     -added readout of sentence number and recommended grammar changes.
+   Version 1
+     -takes a list of sentences in the form of a Prolog predicate 
+      "string([[list],[of,sentences]])."
+     -checks for the violation of property grammar rules for 
+      obligatority(n), exclusion(adj,sup), requirement(n,det),unicity(det),
+      constituency(det),constituency(con),constituency(ver),
+      constituency(adj),constituency(sa),constituency(n),constituency(sup), 
+      precedence(det,n), precedence(det,adj),precedence(adj,n).
+     -creates a list of unsatisfied properties in 
+      unsat([prop1, prop2, ...]) chr constraint.
+     -counts each instance of the unsatisfied property in 
+      unsat_c([prop, count]) chr constraint.
+
+*/
+
+:- compile('chrg').		
+
+%%%% CHANGES: g, update, wait, remove_update moved from constraints to symbols
+%%%%          added template predicate tpl for generic constraints, not instantiated with intervals
+
+
+:- chrg_symbols word/3, g/1, update/1, wait/1, remove_update/1.
+
+:- chr_constraint clean/0, check_waits/0, unsat/1, oblig_check/0, tpl/1.
+
+% LEXICON: word(Category,Traits,Word) 
+
+  [le] ::> word(det,np,[sing,masc],le).
+  [tres] ::> word(sup,np,[sing,masc],tres).
+  
+  %nouns
+  [livre] ::> word(n,np,[sing,masc],livre).
+  [livres] ::> word(n,np,[plur,masc],livre).
+
+  %adjectives
+  [jaune] ::> word(adj,np,[sing,masc],jaune).
+  [bleu] ::> word(adj,np,[sing,masc],bleu).
+
+  %conjunction
+  [et] ::> word(con,np,[na,na], et).
+
+  %aux verb
+  [a] ::> word(ver,vp,[sing, na], a).
+
+  %proper name
+  [amelie] ::> word(pn,np,[sing, feme], amelie).
+
+% SAMPLE PARSES/TESTS
+  
+  string([
+         [amelie],
+	 [le, livre, bleu],
+	 [le, bleu, jaune],
+	 [le, livres, tres, bleu],
+         [le, plus, mauvais, livre],
+	 [le,livre,jaune, et, bleu]]).
+  
+% CLEANUP
+    % when clean is triggered, remove all word(_,_,_), then replace clean 
+    % with finished.
+  word(_,_,_), {!clean} <:> true. 
+  clean <=> true.
+
+% UTILITIES
+%
+% RUN COMMANDS
+
+    %First initializes the unsat([]) list and all the unsat_c counters for 
+    %each property, then finds the list of strings
+    %of the form "string([[a], [list,of], [strings]]).", and processes it.
+  start :- unsat([]), init_grammar, string(X), process(X,0).
+
+% BATCH processing
+  process([],S_count) :- nl,write('There are '), write(S_count), write(' sentences.'),nl, nl,!.
+  process([H|T],S_count) :- S_count_inc is S_count +1, oblig_check,
+				parse(H), check_waits, clean, process(T, S_count_inc).
+
+% UPDATE LISTS
+% Updates simply adds more unsatisfied constraints to the list.
+%%%%% CHANGED: rules moved from ==> operators to ::> because things moved to symbols from constraints.
+
+    %First check if property is already in the list, if so signal remove update without adding to list.
+    %remove the update marker and increment counter for that property
+    %if it was not in the list, increment counter and add to list
+  update(N0, N1, Prop), unsat(List) ==> member(Prop, List) | remove_update(N0, N1, Prop).
+  update(N0, N1, Prop), remove_update(N0, N1, Prop) <=> true.
+  update(N0, N1, Prop), unsat(List) <=> unsat([g(N0, N1, Prop) | List]). 
+
+ % RUN SINGLE EXAMPLE
+
+doParse(S) :- clean, unsat([]), init_grammar, oblig_check, parse(S), check_waits.
+
+% GRAMMAR
+%
+% INIT GRAMMAR
+%
+%%%%% CHANGED: changed to templates because otherwise we can't have different intervals for the same type of constraint
+   init_grammar :- tpl(obligatority(np, n)),
+		   tpl(constituency(np, det)), tpl(constituency(np, adj)), tpl(constituency(np, n)),
+		                               tpl(constituency(np, sup)), tpl(constituency(np, pn)),
+		   tpl(precedence(np, det,adj)), tpl(precedence(np, det,n)),
+  		 tpl(precedence(np, adj,n)), tpl(precedence(np, sup,adj)), tpl(precedence(np, n,sup)), tpl(precedence(np, det,sup)),
+		   tpl(unicity(np, det)),
+		   tpl(requirement(np, n,det)),
+		   tpl(dependence(np, det,n)),
+		   tpl(dependence(np, n,adj)).
+		   tpl(constituency(np, vp,np))
+%GRAMMAR RULES
+%
+%
+% CHECK WAITS
+
+    %when check waits is called, remove wait marker for the unverified property, and signal adding to unsat list
+%%%%% CHANGED: no longer gets for  g(N1, N2, Prop), since g(N1, N2, Prop) is actually never added
+  check_waits \ wait(N1, N2, Prop) <=> update(N1, N2, Prop).
+  check_waits <=> true.
+
+% CONSTITUENCY
+
+  % following rule triggers a warning because it propagates nothing in the body.
+  % for each word, if it is in the constituency list above, do nothing, else update unsat.
+  % could be fixed by having a list of illegal items and checking if it is in the illegal list
+  % e.g. cat(C1,_,_) ::> illegal(C1) | update(constituency(C1)).
+  %word(C1,_,_) ::> tpl(constituency(C1)) -> true ; update(constituency(C1)) | true.
+  %word(C1,_,_) ::> write('MOO1'), tpl(constituency(C1)) -> false ; true | {write('MOO3')}, update(constituency(C1)).
+  
+% OBLIGATORITY
+%%%% BUG: for some reason all(N1, N2) is not succeeding here, and so oblig_check <=> true is firing before we get wait((N1, N2), oblig(C).
+%%%% BUGFIXED: the above bug was fixed by adding all(_,_) as a constraint to oblig_check removal.
+  
+  tpl(obligatority(Root, C)), oblig_check, all(N1, N2) ==> wait(N1, N2, obligatority(Root, C)).
+  all(_, _) \ oblig_check <=> true.
+
+  word(N3, N4, C, Root,_,_) \ wait(N1, N2, obligatority(Root, C)) <=> N1 =< N3, N4 =< N2 | true.
+
+% PRECEDENCE: prec(C1,C2)-- C1 must precede C2 inside a noun phrase
+%%%%% CHANGED: now refers to template constraint instead of g/1 symbol.
+%%%%% POTENTIAL PROBLEM: a NP that is larger than two words might end up messing the intervals up
+%                        because these two words might not match the NP interval
+	
+	 !word(C2,Root,_,_):(N1,_), ... , !word(C1,Root,_,_):(_,N2), {tpl(precedence(Root,C1,C2))} <:> update(precedence(Root,C1,C2)):(N1,N2).
+ 
+% UNICITY one(C,SX)-- only one C is allowed in a phrase SX
+%%%%% CHANGED: now refers to template constraint instead of g/1 symbol.
+
+  !word(C,_,_):(N1,_), ... ,!word(C,_,_):(_,N2), {tpl(unicity(C))} <:> update(unicity(C)):(N1,N2).
+  
+% EXCLUSION: exclude(C1,C2,Ph)-- C1 and C2 must not both occur in a Ph
+%%%%% CHANGED: now refers to template constraint instead of g/1 symbol.
+
+  !word(C1,_,_):(N1,_), ... , !word(C2,_,_):(_,N2), {tpl(exclusion(C1,C2))} <:> update(exclusion(C1,C2)):(N1,N2).
+  !word(C1,_,_):(N1,_), ... , !word(C2,_,_):(_,N2), {tpl(exclusion(C2,C1))} <:> update(exclusion(C2,C1)):(N1,N2).
+
+% REQUIREMENT: exige(C1,C2,Ph)-- if C1 is in Ph, C2 must be there too
+
+  word(_,_,C1,_,_), tpl(requirement(C1,C2)), all(0, N2) ==> wait(0, N2, requirement(C1,C2)).
+  word(N3, N4, C2,_,_) \ wait(N1, N2, requirement(_,C2)) <=> N1 =< N3, N4 =< N2 | true.
+  
+  % This removes all predicates all(0, N) where N is not maximal
+  % wait(N1, N2, requirement(C1,C2)), !wait(N1, N3, requirement(C1,C2)) <=> N2 < N3 | true.
+
+% DEPENDENCE: dep(C1,C2,Ph) -- the traits of C1 determine the traits of C2 inside a Ph
+
+  !word(C1,[_,T12],_), ..., !word(C2,[_,T22],_), {tpl(dependence(C1,C2))} <:> T12 \= T22 | update(dependence(C1,C2)).
+  !word(C1,[T11,_],_), ..., !word(C2,[T21,_],_), {tpl(dependence(C1,C2))} <:> T11 \= T21 | update(dependence(C1,C2)).
+  !word(C1,[T11,_],_), ..., !word(C2,[T21,_],_), {tpl(dependence(C2,C1))} <:> T11 \= T21 | update(dependence(C2,C1)).
+  !word(C1,[_,T12],_), ..., !word(C2,[_,T22],_), {tpl(dependence(C2,C1))} <:> T12 \= T22 | update(dependence(C2,C1)).
+ 
+ end_of_CHRG_source.

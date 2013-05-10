@@ -1,0 +1,77 @@
+%:- compile(chrg).
+
+:- chrg_option(show_rules,on).
+
+:- chrg_symbols sentence/1,
+  np/2, verb/1, name/2, det/0, noun/2, pronoun/1.
+
+/***** sample queries
+parse([peter,likes,and,mary,hates,martha]).
+parse([mary,likes,martha,she,hates,her]).
+parse([martha,likes,and,mary,likes,paul,she,hates,her]).
+*********/
+% The last query shows a problem with AG that we have taken over
+% from the original version [Dahl, Tarau, Li, 1997]:
+% The object from parsing 'she hates her' can be applied as
+% object for the first incomplete sentence 'martha likes <whom?>'.
+% - A topic for future research is extend Assumption Grammars with
+%   better scoping mechanisms.
+
+
+% WARNING about running this program SICStus Prolog:
+% When compiling this file, SICStus complains about
+%     CHR: weird_program
+% followed by more detailed explanations that does not give sense.
+% However, you can just ignore this as the file anyhow seems to be correctly
+% compiled.
+% (experienced with SICStus 4.0.4 (i386-darwin-8.11.1)).
+
+
+%%%%%%%%% The grammar:
+
+% simple sentence; make object available:
+
+np(A,_), verb(V), np(B,_) <:> =*ref_object(B), sentence(s(A,V,B)).
+
+% incomplete sentence - look for object
+
+np(A,_), verb(V) /- [and] <:> =-ref_object(B), sentence(s(A,V,B)).
+
+% name mentioned, now it can be referenced by a pronoun
+
+name(X, Gender) <:> np(X, Gender), *acting(X,Gender).
+
+det, noun(X, Gender)   <:> np(X,Gender), *acting(X,Gender).
+
+pronoun(Gender) <:> -acting(X,Gender), np(X,Gender).
+
+% an integrity constraints:
+
+sentence(s(A,hate,A)) ::> fail.
+
+% GENERATING EXTRA HYPOTHESES
+
+sentence(s(A,see,A)) ::> =*active(neut, the-mirror).
+sentence(s(A,hate,A)) ::> =*depressed(A).
+
+[he]     <:> pronoun(masc).
+[she]    <:> pronoun(fem).
+[him]    <:> pronoun(masc).
+[her]    <:> pronoun(fem).
+[it]     <:> pronoun(neut).
+[woman]  <:> noun(some-woman, fem).
+[man]    <:> noun(some-man, masc).
+[dog]    <:> noun(some-dog, neut).
+[peter]  <:> name(peter, masc).
+[paul]   <:> name(paul, masc).
+[mary]   <:> name(mary, fem).
+[martha] <:> name(martha, fem).
+[the]    <:> det.
+[a]      <:> det.
+[an]     <:> det.
+[likes]  <:> verb(like).
+[loves]  <:> verb(love).
+[hates]  <:> verb(hate).
+[sees]   <:> verb(see).
+
+end_of_CHRG_source.

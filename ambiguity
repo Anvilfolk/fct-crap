@@ -1,0 +1,19 @@
+% Examle of an ambiguous CHR Grammar
+
+% Test it:
+%
+% parse([a,b,c]).
+
+%:- compile(chrg).
+
+
+:- chrg_symbols a/0, bc/0, ab/0, c/0, abc1/0, abc2/0.
+
+[a] ::> a.
+[b,c] ::> bc.
+[a,b] ::> ab.
+[c] ::> c.
+a, bc ::> abc1.
+ab, c ::> abc2.
+
+end_of_CHRG_source.

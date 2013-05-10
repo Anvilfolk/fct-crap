@@ -42,31 +42,36 @@
 %%%%          added template predicate tpl for generic constraints, not instantiated with intervals
 
 
-:- chrg_symbols word/3, g/1, update/1, wait/1, remove_update/1.
+:- chrg_symbols word/3, g/1, update/1, wait/1, remove_update/1, iCat/3.
 
 :- chr_constraint clean/0, check_waits/0, unsat/1, oblig_check/0, tpl/1.
 
 % LEXICON: word(Category,Traits,Word) 
 
-  [le] ::> word(det,np,[sing,masc],le).
-  [tres] ::> word(sup,np,[sing,masc],tres).
+  [le] ::> word(det,[sing,masc],le).
+  [tres] ::> word(adv,[sing,masc],tres).
   
   %nouns
-  [livre] ::> word(n,np,[sing,masc],livre).
-  [livres] ::> word(n,np,[plur,masc],livre).
+  [livre] ::> word(n,[sing,masc],livre).
+  [livres] ::> word(n,[plur,masc],livre).
 
   %adjectives
-  [jaune] ::> word(adj,np,[sing,masc],jaune).
-  [bleu] ::> word(adj,np,[sing,masc],bleu).
+  [jaune] ::> word(adj,[sing,masc],jaune).
+  [bleu] ::> word(adj,[sing,masc],bleu).
 
   %conjunction
-  [et] ::> word(con,np,[na,na], et).
+  [et] ::> word(con,[na,na], et).
 
   %aux verb
-  [a] ::> word(ver,vp,[sing, na], a).
+  [a] ::> word(v,[sing, na], a).
 
   %proper name
-  [amelie] ::> word(pn,np,[sing, feme], amelie).
+  [amelie] ::> word(pn,[sing, feme], amelie).
+
+
+% CREATE INSTANTIATED CATEGORIES FROM WORDS
+
+word(Comp, Attr, Word) ::> iCat(Comp, Attr, Word).
 
 % SAMPLE PARSES/TESTS
   
@@ -115,20 +120,66 @@ doParse(S) :- clean, unsat([]), init_grammar, oblig_check, parse(S), check_waits
 
 % GRAMMAR
 %
-% INIT GRAMMAR
 %
-%%%%% CHANGED: changed to templates because otherwise we can't have different intervals for the same type of constraint
+% INIT GRAMMAR
    init_grammar :- tpl(obligatority(np, n)),
-		   tpl(constituency(np, det)), tpl(constituency(np, adj)), tpl(constituency(np, n)),
-		                               tpl(constituency(np, sup)), tpl(constituency(np, pn)),
+		   tpl(constituency(np, [det, adj, n, adv, pn]),
 		   tpl(precedence(np, det,adj)), tpl(precedence(np, det,n)),
   		 tpl(precedence(np, adj,n)), tpl(precedence(np, sup,adj)), tpl(precedence(np, n,sup)), tpl(precedence(np, det,sup)),
 		   tpl(unicity(np, det)),
 		   tpl(requirement(np, n,det)),
 		   tpl(dependence(np, det,n)),
-		   tpl(dependence(np, n,adj)).
-		   tpl(constituency(np, vp,np))
-%GRAMMAR RULES
+		   tpl(dependence(np, n,adj))).
+
+
+% KERNEL EXPANSIONS
+%
+%
+
+category(np).
+category(vp).
+category(adjp).
+
+kernel(n, np).
+kernel(v, vp).
+kernel(adj, adjp).
+
+kernelOf(Comp,Cat) :- kernel(Comp, Cat).
+kernelOf(Cat, Cat) :- category(Cat).
+
+% Constituency check, is component Comp an acceptable member of category Cat
+constCheck(Cat, Comp) :- tpl(constituency(Cat, L)), member(Comp, L).
+
+
+% TREE RULES
+%
+%
+
+buildTree(Cat,T1,T2,Tree):- T1=..[Cat|L], !, append(L,[T2],L1), Tree=..[Cat|L1].
+buildTree(Cat,T1,T2,Tree):- T2=..[Cat|L], !, append([T1],L,L1), Tree=..[Cat|L1].
+buildTree(Cat,T1,T2,Tree):- Tree=..[Cat,T1,T2].
+
+
+% MERGING INSTANTIATED CATEGORIES
+%
+%
+% CompX means the Comp that is the eXtension
+
+iCat(Comp1,Attr1,Tree1), iCat(Comp2,Attr2,Tree2) ::>
+        (kernelOf(Comp1,Cat) ->
+          (CompX=Comp2, AttrX=Attr2, TreeX=Tree2, Attr=Attr1)
+        ;
+          (kernelOf(Comp2,Cat) ->
+            (CompX=Comp1, AttrX=Attr1, TreeX=Tree1, Attr=Attr2)
+          ;
+            fail)),
+        !, constCheck(Cat,CompX),   % constituency
+        buildTree(Cat, Tree1, Tree2, Tree)
+        | iCat(Cat, Attr, Tree).   % generate new category betw. X and Z, with same traits (TE) as the kernel/phrase
+
+
+
+% GRAMMAR RULES
 %
 %
 % CHECK WAITS
@@ -139,11 +190,8 @@ doParse(S) :- clean, unsat([]), init_grammar, oblig_check, parse(S), check_waits
   check_waits <=> true.
 
 % CONSTITUENCY
+%%%% WE DO NOT NEED THIS ANYMORE SINCE PROPAGATION ENSURES CONSTITUENCY
 
-  % following rule triggers a warning because it propagates nothing in the body.
-  % for each word, if it is in the constituency list above, do nothing, else update unsat.
-  % could be fixed by having a list of illegal items and checking if it is in the illegal list
-  % e.g. cat(C1,_,_) ::> illegal(C1) | update(constituency(C1)).
   %word(C1,_,_) ::> tpl(constituency(C1)) -> true ; update(constituency(C1)) | true.
   %word(C1,_,_) ::> write('MOO1'), tpl(constituency(C1)) -> false ; true | {write('MOO3')}, update(constituency(C1)).
   
@@ -154,7 +202,8 @@ doParse(S) :- clean, unsat([]), init_grammar, oblig_check, parse(S), check_waits
   tpl(obligatority(Root, C)), oblig_check, all(N1, N2) ==> wait(N1, N2, obligatority(Root, C)).
   all(_, _) \ oblig_check <=> true.
 
-  word(N3, N4, C, Root,_,_) \ wait(N1, N2, obligatority(Root, C)) <=> N1 =< N3, N4 =< N2 | true.
+%%%% Change a bit to include both words and categories ???? wat is dis i dont even
+  iCat(N3, N4, Cat,_,_) \ wait(N1, N2, obligatority(Cat, C)) <=> N1 =< N3, N4 =< N2 | true.
 
 % PRECEDENCE: prec(C1,C2)-- C1 must precede C2 inside a noun phrase
 %%%%% CHANGED: now refers to template constraint instead of g/1 symbol.

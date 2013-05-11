@@ -1,16 +1,12 @@
 :- compile(chrg).
 
-:- chrg_symbols np/0, verb/0, sentence/0, adj/0, n/0.
+:- chr_constraint c/0.
+:- chrg_symbols aa/0, bb/1.
 
-np, verb, np ::> sentence.
-n ::> np.
-adj, n ::> np.
+:- chr_constraint h/1.
+[a] ::> {h(a)}, aa.
+[b], {h(X)} <:> bb(X).
 
-[blue] ::> adj.
-[peter] ::> n.
-[mary] ::> n.
-[likes] ::> verb.
+bb(_,_,a) \ aa(_,_) <=> c.
 
-end_of_CHRG_source.
-
-% parse([peter,likes,mary]).
+ end_of_CHRG_source.

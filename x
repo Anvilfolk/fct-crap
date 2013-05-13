@@ -1,7 +1,7 @@
 a.
 b.
 
-c :- false.
+c :- fail.
 
 p(1, 4).
 p(r(1), 3).

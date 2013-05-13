@@ -145,26 +145,23 @@ buildTree(Cat,T1,T2,Tree):- T1=..[Cat|L], !, append(L,[T2],L1), Tree=..[Cat|L1].
 buildTree(Cat,T1,T2,Tree):- T2=..[Cat|L], !, append([T1],L,L1), Tree=..[Cat|L1].%, write('s2'-Cat),nl.
 buildTree(Cat,T1,T2,Tree):- Tree=..[Cat,T1,T2].%, write('s3'-Cat-Tree),nl.
 
-%iCat(Comp,Attr,Tree) ::> head(Comp, Cat), not(category(Comp)) | iCat(Cat,Attr,Tree).%, {write('b3'-iCat(Cat, Attr, Tree)),nl}.
+% KERNELS ARE CATEGORIES AT THE LEAF LEVEL
+
 iCat(Comp,Attr,Tree) ::> head(Comp, Cat), not(category(Comp)), CatTree=..[Cat,Tree] | iCat(Cat,Attr, CatTree).
 
 % EXPANDING CATEGORIES - CHUNKER
 
   !iCat(Comp, _, Tree1), iCat(Cat, Attr2, Tree2), % Comp next to Cat, subcategories stay, to-expand category disappears
   !{tpl(constituency(Cat, L))}, !{chunker_phase}  % L is the set of constituents of Cat
-  <:> member(Comp, L), %not(category(Comp)),       % Comp is a basic word constituent of Cat
+  <:> member(Comp, L), not(category(Comp)),       % Comp is a basic word constituent of Cat
       buildTree(Cat, Tree1, Tree2, Tree)%,write('b1'-Cat-Tree),nl          % Build the tree for the expanded Cat
   | iCat(Cat, Attr2, Tree).                       % Create expanded Cat, replacing the smaller, previous one
 
   iCat(Cat, Attr1, Tree1), !iCat(Comp, _, Tree2), % Symmetric rule
   !{tpl(constituency(Cat, L))}, !{chunker_phase}
-  <:> member(Comp, L), %not(category(Comp)),
+  <:> member(Comp, L), not(category(Comp)),
       buildTree(Cat, Tree1, Tree2, Tree)%, write('b2'-Cat-Tree),nl
   | iCat(Cat, Attr1, Tree).
-  
-% KERNELS ARE CATEGORIES
-%iCat(Comp,Attr,Tree) ::> head(Comp, Cat), not(category(Comp)) | iCat(Cat,Attr,Tree).%, {write('b3'-iCat(Cat, Attr, Tree)),nl}.
-iCat(Comp,Attr,Tree), {chunker_phase} ::> head(Comp, Cat), category(Comp), CatTree=..[Cat,Tree] | iCat(Cat,Attr, CatTree).
 
 
 % Once chunking is done, i.e. no more of the above rules can be applied,
@@ -288,29 +285,20 @@ iCat(N1, N2, _, _, _), iCat(N3, N4, _, _, _), init_check ==> N1 < N3, N3 < N2, N
 
 % EXPANDING CATEGORIES - WITH CONSTRAINTS
 
-%  unsat(R)
-%
-%  unsat(R) \ 
-%  tentative(iCat(N1, N2, Cat, Attr2, Tree)),
-%  failedCat(L),
-%  <=> R=..[g,_,_,]
+  !iCat(Comp, _, Tree1), iCat(Cat, Attr2, Tree2), % Comp next to Cat, subcategories stay, to-expand category disappears
+  !{tpl(constituency(Cat, L))}, !{chunker_phase}  % L is the set of constituents of Cat
+  <:> member(Comp, L), category(Comp),       % Comp is a basic word constituent of Cat
+      buildTree(Cat, Tree1, Tree2, Tree)%,write('b1'-Cat-Tree),nl          % Build the tree for the expanded Cat
+  | iCat(Cat, Attr2, Tree).                       % Create expanded Cat, replacing the smaller, previous one
 
-%  iCat(N1, N2, Comp, _, Tree1), iCat(N2, N3, Cat, Attr2, Tree2),
-%  failedCat(L),
-%  tpl(constituency(Cat, L)),
-%  ==> not(member(iCat(N1, N3, Cat, Attr2, Tree), L), % hasn't failed before
-%      member(Comp, L),
-%      buildTree(Cat, Tree1, Tree2, Tree)
-%  | tentative(iCat(N1, N3, Cat, Attr2, Tree)).
+  iCat(Cat, Attr1, Tree1), !iCat(Comp, _, Tree2), % Symmetric rule
+  !{tpl(constituency(Cat, L))}, !{chunker_phase}
+  <:> member(Comp, L), category(Comp),
+      buildTree(Cat, Tree1, Tree2, Tree)%, write('b2'-Cat-Tree),nl
+  | iCat(Cat, Attr1, Tree).
 
-%  iCat(Cat, Attr1, Tree1), !iCat(Comp, _, Tree2), % Symmetric rule
-%  !{tpl(constituency(Cat, L))}, !{chunker_phase}
-%  <:> member(Comp, L), not(category(Comp)),
-%      buildTree(Cat, Tree1, Tree2, Tree)
-%  | iCat(Cat, Attr1, Tree).
-
-
-
+% KERNELS ARE CATEGORIES AT THE CATEGORY LEVEL
+iCat(Comp,Attr,Tree), {chunker_phase} ::> head(Comp, Cat), category(Comp), CatTree=..[Cat,Tree] | iCat(Cat,Attr, CatTree).
 
 
 end_of_CHRG_source.

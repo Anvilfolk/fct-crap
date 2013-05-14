@@ -38,11 +38,10 @@
 
 :- compile('chrg').		
 
-:- chrg_symbols word/3, g/1, falsify/1, wait/1, remove_falsify/1, iCat/3, ambiguity/0.
+:- chrg_symbols word/3, g/1, falsify/1, wait/1, remove_falsify/1, iCat/3.
 
-:- chr_constraint clean/0, checkExistentialConstraints/0, unsat/1,
-   chunker_phase/0, init_check/0, constraint_phase/0, tpl/1, tentative/1,%.
-   failed/1, revert/0, revertFrom/1, revertTo/1, evil/1, relaxable/1.
+:- chr_constraint checkExistentialConstraints/0, unsat/1, tpl/1, parseOrder/1,
+   failed/1, revert/0, revertFrom/1, revertTo/1, evil/1, relaxable/1, grow/0.
 
 
 % LEXICON: word(Category,Traits,Word) 
@@ -77,7 +76,7 @@
 
 % CREATE INSTANTIATED CATEGORIES FROM WORDS
 
-word(Comp, Attr, Word) <:> Tree=..[Comp,Word] | iCat(Comp, Attr, Tree).
+word(Comp, Attr, Word) <:> Tree =.. [Comp,Word] | iCat(Comp, Attr, Tree).
 
 % SAMPLE PARSES/TESTS
   
@@ -95,14 +94,14 @@ word(Comp, Attr, Word) <:> Tree=..[Comp,Word] | iCat(Comp, Attr, Tree).
     %First check if property is already in the list, if so signal remove falsify without adding to list.
     % remove the falsify marker
     %if it was not in the list, add to list
-  falsify(N0, N1, Prop), unsat(List) ==> member(Prop, List) | remove_falsify(N0, N1, Prop).
+  falsify(N0, N1, Prop), unsat(List) ==> member(g(N0, N1, Prop), List) | remove_falsify(N0, N1, Prop).
   falsify(N0, N1, Prop), remove_falsify(N0, N1, Prop) <=> true.
   falsify(N0, N1, Prop), unsat(List) <=> unsat([g(N0, N1, Prop) | List]). 
 
  % RUN SINGLE EXAMPLE
 
-doParse(S) :- unsat([]), evil([]), init_grammar, parse(S), chunker_phase,
-              init_check, constraint_phase, checkExistentialConstraints.
+doParse(S) :- unsat([]), evil([]), init_grammar, parse(S), grow, % chunker_phase,init_check, constraint_phase,
+                                                 checkExistentialConstraints.
 
 % GRAMMAR
 %
@@ -127,7 +126,9 @@ init_grammar :- tpl(constituency(sentence, [np, vp])),
                 tpl(unicity(np,det)), % extras for tests
                 tpl(exclusion(np, pn, det)),
                 tpl(dependence(np, det, n)),
-                relaxable([precedence(vp,v,np),unicity(vp,np)]).
+                relaxable([unicity(vp,np),precedence(np,det,n)]),
+                %relaxable([]),
+                parseOrder([np,vp,sentence]).
 
 % CATEGORIES, KERNELS, ETC
 
@@ -144,43 +145,17 @@ head(vp, sentence).
 %
 % Given two tree-like structures and the to-expand category, create a new tree.
 
-buildTree(Cat,T1,T2,Tree):- T1=..[Cat|L], !, append(L,[T2],L1), Tree=..[Cat|L1].%, write('s1'-Cat),nl.
-buildTree(Cat,T1,T2,Tree):- T2=..[Cat|L], !, append([T1],L,L1), Tree=..[Cat|L1].%, write('s2'-Cat),nl.
-buildTree(Cat,T1,T2,Tree):- Tree=..[Cat,T1,T2].%, write('s3'-Cat-Tree),nl.
+buildTree(Cat,C1,C2,T) :- %nl, write('*****<':Cat:'*****'),nl,write(C1), nl, write(C2), nl,
+                          C1 = iCat(_, _, Cat,  _, T1),
+                          C2 = iCat(_, _, Comp, _, _), !,
+                          Cat \= Comp, T1=..[Cat|L1],
+                          append(L1,[C2],L), T=..[Cat|L].
 
-% KERNELS ARE CATEGORIES AT THE LEAF LEVEL
-
-iCat(Comp,Attr,Tree) ::> head(Comp, Cat), not(category(Comp)), CatTree=..[Cat,Tree] | iCat(Cat,Attr, CatTree).
-
-% EXPANDING CATEGORIES - CHUNKER
-
-  !iCat(Comp, _, Tree1), iCat(Cat, Attr2, Tree2), % Comp next to Cat, subcategories stay, to-expand category disappears
-  !{tpl(constituency(Cat, L))}, !{chunker_phase}  % L is the set of constituents of Cat
-  <:> member(Comp, L), not(category(Comp)),       % Comp is a basic word constituent of Cat
-      buildTree(Cat, Tree1, Tree2, Tree)%,write('b1'-Cat-Tree),nl          % Build the tree for the expanded Cat
-  | iCat(Cat, Attr2, Tree).                       % Create expanded Cat, replacing the smaller, previous one
-
-  iCat(Cat, Attr1, Tree1), !iCat(Comp, _, Tree2), % Symmetric rule
-  !{tpl(constituency(Cat, L))}, !{chunker_phase}
-  <:> member(Comp, L), not(category(Comp)),
-      buildTree(Cat, Tree1, Tree2, Tree)%, write('b2'-Cat-Tree),nl
-  | iCat(Cat, Attr1, Tree).
-
-
-% Once chunking is done, i.e. no more of the above rules can be applied,
-% change to the constraint phase where constraints can be checked.
-
-init_check \ chunker_phase <=> true.
-
-%init_check, iCat(N1, N2, Cat, Attr1, Tree1) ==> category(Cat) | tentative(iCat(N1, N2, Cat, Attr1, Tree1)).
-init_check <=> true.
-
-constraint_phase \ init_check <=> true.
-
-% Once we are in the constraint phase, check whether there is ambiguity.
-% For this, we try to find two non-terminal categories that overlap.
-
-iCat(N1, N2, _, _, _), iCat(N3, N4, _, _, _), init_check ==> N1 < N3, N3 < N2, N2 < N4 | ambiguity(N3, N2).
+buildTree(Cat,C1,C2,T) :- %nl, write('*****':Cat:'>*****'),nl,write(C1), nl, write(C2), nl,
+                          C1 = iCat(_, _, Comp, _, _),
+                          C2 = iCat(_, _, Cat , _, T2),
+                          Cat \= Comp, T2=..[Cat|L2],
+                          append([C1],L2,L), T=..[Cat|L].
 
 % GRAMMAR RULES
 %
@@ -193,96 +168,89 @@ iCat(N1, N2, _, _, _), iCat(N3, N4, _, _, _), init_check ==> N1 < N3, N3 < N2, N
 % desired, which are marked using wait(Prop), are checked.
 % The constraint_phase indicator is also removed to make output prettier :)
   !{checkExistentialConstraints}, wait(Prop) <:> falsify(Prop).
-  checkExistentialConstraints, constraint_phase <=> true.
-
-
-
-% OBLIGATORITY (existential property)
-% obligatority(Cat, C) - all categories of type Cat must have a C included.
-
-% For any category, if there is an obligatority template, then we must wait for it to be satisfied.
-% It is satisfied whenever we can find the desired category within the boundaries of the root category.
-  iCat(Cat, _, _),                                % Found Cat
-  {tpl(obligatority(Cat, C))}, {constraint_phase} % Cat should have C & constraint phase
-  ::> wait(obligatority(Cat, C)).                 % then wait for C...
-  
-  
-  !{iCat(N1, N2, C,_,_)},                               % Found C!
-  wait(obligatority(_,C)):(N3, N4), !{constraint_phase} % We needed C within some bounds
-  <:> N3 =< N1, N2 =< N4                                % C is within those bounds
-  | true.                                               % Obligatority satisfied!
-
-% REQUIREMENT (existential property)
-% requirement(C,C1,C2) - if there is a C1 in C, then there must also be a C2
- 
-% If one can find a category of type C1 within a category of type C, then one must wait for a
-% category of type C2 within the boundaries of C. Satisfaction is the same as above.
-
-  iCat(C1,_,_):(N1, N2), {iCat(N3,N4,Cat,_,_)},          % C1, C
-  {tpl(requirement(Cat,C1,C2))}, {constraint_phase}      % Constraints & constraint phase
-  ::> N3 =< N1, N2 =< N4                                 % C1 within C2
-  | wait(requirement(Cat,C1,C2)):(N3, N4).               % then wait...
-  
-  !{iCat(N1, N2, C2,_,_)},                                % Found C2!
-  wait(requirement(_,_,C2)):(N3, N4), !{constraint_phase} % There was a requirement for C2
-  <:> N3 =< N1, N2 =< N4                                  % C2 within C
-  | true.                                                 % Requirement satisfied!
+  checkExistentialConstraints <=> true.
 
 % PRECEDENCE (universal property)
 % prec(C,C1,C2) - any C1 within C must precede any C2 within that same C.
  
 % Precedence is falsified whenever two categories C2, C1 are found in that order within the bounds of C.	
-  iCat(Cat2,_,_):(N1,_), ... , iCat(Cat1,_,_):(_,N2), {iCat(N3,N4,Cat,_,_)}, % Found C2 and C1, in that order, and a C
-  {tpl(precedence(Cat,Cat1,Cat2))}, {constraint_phase}                       % Precedence & constraint phase
-  ::> N3 =< N1, N2 =< N4 |                                                   % C1 and C2 within C
-  falsify(precedence(Cat,Cat1,Cat2)):(N1,N2), {failed(g(N1,N2,precedence(Cat,Cat1,Cat2)))}.                                % Precedence falsified!
+  iCat(C2,Attr2,Tree2):(N1,N2), ... ,         % Found C2
+  iCat(C1,Attr1,Tree1):(N3,N4),               % Then a C1 sometime later
+  {iCat(N5,N6,Cat,_,Tree)},                   % And there's a Cat
+  {tpl(precedence(Cat,C1,C2))}                % In Cats, C1's must come C2's
+  ::> N5 =< N1, N4 =< N6, Tree=..[Cat|T],     % C1 and C2 within Cat
+      member(iCat(N1,N2,C2,Attr2,Tree2), T),  % Both are direct descendents of Cat
+      member(iCat(N3,N4,C1,Attr1,Tree1), T)
+  | falsify(precedence(Cat,C1,C2)):(N1,N4),   % Precedence falsified!
+    {failed(g(N1,N4,precedence(Cat,C1,C2)))}. % Failure of tentative category
+
   
 % UNICITY (universal property)
 % unicity(Cat,C) - only one C is allowed in a Cat
 
 % Unicity fails whenever you can find two distinct Cs within the bounds of Cat.
-  iCat(C,_,_):(N1,_), ... ,iCat(C,_,_):(_,N2), {iCat(N3,N4,Cat,_,_)}, % Found two C's and a Cat
-  {tpl(unicity(Cat,C))}, {constraint_phase}                           % Unicity & constraint phase
-  ::> N3 =< N1, N2 =< N4                                              % Both C's within Cat bounds
-  | falsify(unicity(Cat,C)):(N1,N2), {failed(g(N1, N2, unicity(Cat,C)))}.                                  % Unicity falsified!
+  iCat(C,Attr1,Tree1):(N1,N2), ... ,        % Found C
+  iCat(C,Attr2,Tree2):(N3,N4),              % Then another C sometime later
+  {iCat(N5,N6,Cat,_,Tree)},                 % And there's a Cat
+  {tpl(unicity(Cat,C))}                     % Unicity
+  ::> N5 =< N1, N4 =< N6, Tree=..[Cat|T],   % C's within Cat
+      member(iCat(N1,N2,C,Attr1,Tree1), T), % Both are direct descendents of Cat
+      member(iCat(N3,N4,C,Attr2,Tree2), T)
+  | falsify(unicity(Cat,C)):(N1,N4),        % Unicity falsified!
+    {failed(g(N1, N4, unicity(Cat,C)))}.    % Failure of tentative category
   
 % EXCLUSION (universal property)
 % exclusion(Cat,C1,C2) - C1 and C2 must not both occur in a Cat
 
 % If we can find both a C1 and C2 (in either ordering) within a Cat, exclusion fails
-  iCat(C1,_,_):(N1,_), ... , iCat(C2,_,_):(_,N2), {iCat(N3,N4,Cat,_,_)}, % Found C1, C2 and C
-  {tpl(exclusion(Cat,C1,C2))}, {constraint_phase}                        % Exclusion & constraint phase
-  ::> N3 =< N1, N2 =< N4                                                 % C1 and C2 within C
-  | falsify(exclusion(Cat,C1,C2)):(N1,N2), {failed(g(N1, N2, exclusion(Cat,C1,C2)))}.                               % Exclusion falsified!
+  %iCat(C1,_,_):(N1,_), ... , iCat(C2,_,_):(_,N2), {iCat(N3,N4,Cat,_,_)}, % Found C1, C2 and C
+  iCat(C1,Attr1,Tree1):(N1,N2), ... ,          % Found C1
+  iCat(C2,Attr2,Tree2):(N3,N4),                % Then a C2 sometime later
+  {iCat(N5,N6,Cat,_,Tree)},                    % And there's a Cat
+  {tpl(exclusion(Cat,C1,C2))}                  % Exclusion
+  ::> N5 =< N1, N4 =< N6, Tree=..[Cat|T],      % C1 and C2 within Cat
+      member(iCat(N1,N2,C1,Attr1,Tree1), T),   % Both are direct descendents of Cat
+      member(iCat(N3,N4,C2,Attr2,Tree2), T)
+  | falsify(exclusion(Cat,C1,C2)):(N1,N4),     % Exclusion falsified!
+    {failed(g(N1, N4, exclusion(Cat,C1,C2)))}. % Failure of tentative category
   
-  iCat(C1,_,_):(N1,_), ... , iCat(C2,_,_):(_,N2), {iCat(N3,N4,Cat,_,_)}, % Symmetric to the above
-  {tpl(exclusion(Cat,C2,C1))}, {constraint_phase}
-  ::> N3 =< N1, N2 =< N4
-  | falsify(exclusion(Cat,C2,C1)):(N1,N2), {failed(g(N1, N2, exclusion(Cat,C2,C1)))}.
+  iCat(C1,Attr1,Tree1):(N1,N2), ... ,        % Symmetry, C2 and C1
+  iCat(C2,Attr2,Tree2):(N3,N4),
+  {iCat(N5,N6,C,_,Tree)},
+  {tpl(exclusion(C,C1,C2))}
+  ::> N5 =< N1, N4 =< N6, Tree=..[C|T],
+      member(iCat(N1,N2,C1,Attr1,Tree1), T),
+      member(iCat(N3,N4,C2,Attr2,Tree2), T)
+  | falsify(exclusion(C,C2,C1)):(N1,N4),
+    {failed(g(N1, N4, exclusion(C,C2,C1)))}.
 
 % DEPENDENCE (universal property)
 % dependence(Cat,C1,C2) - the traits of C1 determine the traits of C2 inside a C
 
 % If we can find C1 and C2 (in either ordering) whose two attributes are different, dependence fails
-  iCat(C1,[_,T12],_):(N1,_), ..., iCat(C2,[_,T22],_):(_,N2), {iCat(N3,N4,Cat,_,_)}, % Found C1, C2 and C
-  {tpl(dependence(Cat,C1,C2))}, {constraint_phase}                                  % Dependence & constraint phase
-  ::> T12 \= T22, N3 =< N1, N2 =< N4                                                % The attributes differ, and C1 and C2 within C
-  | falsify(dependence(Cat,C1,C2)):(N1,N2), {failed(g(N1, N2, dependence(Cat,C1,C2)))}.                                         % Dependence falsified!
+  iCat(C1,Attr1,Tree1):(N1,N2), ... ,           % Found C1
+  iCat(C2,Attr2,Tree2):(N3,N4),                 % Then a C2 sometime later
+  {iCat(N5,N6,Cat,_,Tree)},                     % And there's a Cat
+  {tpl(dependence(Cat,C1,C2))}                  % Dependence & constraint phase
+  ::> Attr1 \= Attr2,                           % Attributes differ
+      N5 =< N1, N4 =< N6, Tree=..[Cat|T],       % C1 and C2 within Cat
+      member(iCat(N1,N2,C1,Attr1,Tree1), T),    % Both are direct descendents of Cat
+      member(iCat(N3,N4,C2,Attr2,Tree2), T)
+  | falsify(dependence(Cat,C1,C2)):(N5,N6),     % Dependence falsified!
+    {failed(g(N5, N6, dependence(Cat,C1,C2)))}. % Failure of tentative category
 
-  iCat(C1,[T11,_],_):(N1,_), ..., iCat(C2,[T21,_],_):(_,N2), {iCat(N3,N4,Cat,_,_)}, % Symmetric wrt the other attributes
-  {tpl(dependence(Cat,C1,C2))}, {constraint_phase}                                  % and wrt C1 and C2 ordering
-  ::> T11 \= T21, N3 =< N1, N2 =< N4
-  | falsify(dependence(Cat,C1,C2)):(N1,N2), {failed(g(N1, N2, dependence(Cat,C1,C2)))}.
-  
-  iCat(C1,[T11,_],_):(N1,_), ..., iCat(C2,[T21,_],_):(_,N2), {iCat(N3,N4,Cat,_,_)},
-  {tpl(dependence(Cat,C2,C1))}, {constraint_phase}
-  ::> T11 \= T21, N3 =< N1, N2 =< N4
-  | falsify(dependence(Cat,C2,C1)):(N1,N2), {failed(g(N1, N2, dependence(Cat,C2,C1)))}.
-  
-  iCat(C1,[_,T12],_):(N1,_), ..., iCat(C2,[_,T22],_):(_,N2), {iCat(N3,N4,Cat,_,_)},
-  {tpl(dependence(Cat,C2,C1))}, {constraint_phase}
-  ::> T12 \= T22, N3 =< N1, N2 =< N4
-  | falsify(dependence(Cat,C2,C1)):(N1,N2), {failed(g(N1, N2, dependence(Cat,C2,C1)))}.
+  iCat(C1,Attr1,Tree1):(N1,N2), ... ,           % Symmetric
+  iCat(C2,Attr2,Tree2):(N3,N4),
+  {iCat(N5,N6,Cat,_,Tree)},
+  {tpl(dependence(Cat,C1,C2))}
+  ::> Attr1 \= Attr2,
+      N5 =< N1, N4 =< N6, Tree=..[Cat|T],
+      member(iCat(N1,N2,C1,Attr1,Tree1), T),
+      member(iCat(N3,N4,C2,Attr2,Tree2), T)
+  | falsify(dependence(Cat,C2,C1)):(N5,N6),
+    {failed(g(N5, N6, dependence(Cat,C2,C1)))}.
+
+
 
 
 
@@ -293,40 +261,86 @@ failed(g(_, _, Prop)), relaxable(R) ==> not(member(Prop, R)) | revert.
 revert, revert <=> revert. % Only one revert.
 
 % Since we are reverting, remove all unsatisfied properties until no more failed(P) apply.
-revert \ unsat(L), failed(P) <=> delete(L, P, L2), write('OMG THIS FAILED ':P:(L2)), nl | unsat(L2).
+revert \ unsat(L), failed(P) <=> delete(L, P, L2), write('FAILED ':P:(L2):(L)), nl | unsat(L2).
 
 % Revert - remove the revertFrom/To predicates, the From, and add the To. Also add the failed predicate to the evil list!
-evil(E), revert, revertFrom(iCat(N1,N2,Cat1, Attr1, Tree1)), iCat(N1,N2,Cat1, Attr1, Tree1), revertTo(iCat(N3,N4,Cat2, Attr2, Tree2))
-<=> iCat(N3,N4,Cat2, Attr2, Tree2), evil([iCat(N1,N2,Cat1, Attr1, Tree1)|E]).
+evil(E), revert, 
+revertFrom(iCat(N1,N2,Cat1, Attr1, Tree1)),
+revertTo(iCat(N3,N4,Cat2, Attr2, Tree2)),
+iCat(N1,N2,Cat1, Attr1, Tree1)
+<=> %write('AAAAAAAAAAAAAAAAAAAAAAAAAAAA') |
+  iCat(N3,N4,Cat2, Attr2, Tree2), evil([iCat(N1,N2,Cat1, Attr1, Tree1)|E]).
 
+
+% In case there was no revert, simply remove the revertFroms, and the failed (which were relaxed for sure).
+%revertFrom(F), revertTo(T) <=> nl, write('++++++++'), nl, write(F), nl, write(T), nl, write('--------'), nl | true.
 revertFrom(_), revertTo(_) <=> true.
-
+failed(_) <=> true.
 
 % EXPANDING CATEGORIES - WITH CONSTRAINTS
 
-   !iCat(Comp, _, Tree1):(N1,N2), iCat(Cat, Attr2, Tree2):(N2,N3), % Comp next to Cat, subcategories stay, to-expand category disappears
-   !{tpl(constituency(Cat, L))}, !{constraint_phase},  % L is the set of constituents of Cat
-   !{evil(EL)}
-  <:> not(member(iCat(N1,N3,Cat, Attr2, Tree), EL)),
-      member(Comp, L), category(Comp),         % Comp is a basic word constituent of Cat
-      buildTree(Cat, Tree1, Tree2, Tree)       % Build the tree for the expanded Cat
-  | iCat(Cat, Attr2, Tree):(N1,N3),            % Create expanded Cat, replacing the smaller, previous one
+   !iCat(Comp, Attr1, Tree1):(N1,N2), iCat(Cat, Attr2, Tree2):(N2,N3), % Comp next to Cat, subcategories stay, to-expand category disappears
+   !{tpl(constituency(Cat, L))},!{evil(EL)},         % L is the set of constituents of Cat
+   !{parseOrder([Cat|_])}
+  <:> not(member(iCat(N1,N3,Cat, Attr2, Tree), EL)), % A constituent that is not a super-horrible thing.
+      member(Comp, L),                               % Comp is a basic word constituent of Cat
+      buildTree(Cat, iCat(N1,N2,Comp, Attr1, Tree1),
+                     iCat(N2,N3,Cat , Attr2, Tree2),
+                     Tree)                           % Build the tree for the expanded Cat
+  | iCat(Cat, Attr2, Tree):(N1,N3),                  % Create expanded Cat, replacing the smaller, previous one
     {revertFrom(iCat(N1,N3,Cat, Attr2, Tree))},
     {revertTo(iCat(N2,N3,Cat, Attr2, Tree2))}.
 
-   iCat(Cat, Attr1, Tree1):(N1,N2), !iCat(Comp, _, Tree2):(N2,N3), % Symmetric rule
-   !{tpl(constituency(Cat, L))},% !{constraint_phase},
-   !{evil(EL)}
+   iCat(Cat, Attr1, Tree1):(N1,N2), !iCat(Comp, Attr2, Tree2):(N2,N3), % Symmetric rule
+   !{tpl(constituency(Cat, L))}, !{evil(EL)},
+   !{parseOrder([Cat|_])}
   <:> not(member(iCat(N1,N3,Cat, Attr1, Tree), EL)),
-      member(Comp, L), category(Comp),
-      buildTree(Cat, Tree1, Tree2, Tree)%, write('b2'-Cat-Tree),nl
-  | iCat(Cat, Attr1, Tree):(N1,N3),%.
+      member(Comp, L),
+      buildTree(Cat, iCat(N1,N2,Cat , Attr1, Tree1),
+                     iCat(N2,N3,Comp, Attr2, Tree2), Tree)
+  | iCat(Cat, Attr1, Tree):(N1,N3),
     {revertFrom(iCat(N1,N3,Cat, Attr1, Tree))},
     {revertTo(iCat(N1,N2,Cat, Attr1, Tree1))}.
 
-% KERNELS ARE CATEGORIES AT THE CATEGORY LEVEL
-iCat(Comp,Attr,Tree), {chunker_phase} ::> head(Comp, Cat), category(Comp), CatTree=..[Cat,Tree] | iCat(Cat, Attr, CatTree).
 
+
+% OBLIGATORITY (existential property)
+% obligatority(Cat, C) - all categories of type Cat must have a C included.
+
+% For any category, if there is an obligatority template, then we must wait for it to be satisfied.
+% It is satisfied whenever we can find the desired category within the boundaries of the root category.
+  iCat(Cat, _, _),                 % Found Cat
+  {tpl(obligatority(Cat, C))}      % Cat should have C & constraint phase
+  ::> wait(obligatority(Cat, C)).  % then wait for C...
+  
+  
+  !{iCat(N1, N2, C,_,_)},          % Found C!
+  wait(obligatority(_,C)):(N3, N4) % We needed C within some bounds
+  <:> N3 =< N1, N2 =< N4           % C is within those bounds
+  | true.                          % Obligatority satisfied!
+
+% REQUIREMENT (existential property)
+% requirement(C,C1,C2) - if there is a C1 in C, then there must also be a C2
+ 
+% If one can find a category of type C1 within a category of type C, then one must wait for a
+% category of type C2 within the boundaries of C. Satisfaction is the same as above.
+
+  iCat(C1,_,_):(N1, N2), {iCat(N3,N4,Cat,_,_)}, % C1, C
+  {tpl(requirement(Cat,C1,C2))}                 % Constraints & constraint phase
+  ::> N3 =< N1, N2 =< N4                        % C1 within C2
+  | wait(requirement(Cat,C1,C2)):(N3, N4).      % then wait...
+  
+  !{iCat(N1, N2, C2,_,_)},                      % Found C2!
+  wait(requirement(_,_,C2)):(N3, N4)            % There was a requirement for C2
+  <:> N3 =< N1, N2 =< N4                        % C2 within C
+  | true.                                       % Requirement satisfied!
+
+
+
+% KERNELS ARE CATEGORIES AT THE CATEGORY LEVEL
+iCat(Comp,Attr,Tree):(N1,N2), {parseOrder([Cat|_])} ::> head(Comp, Cat), NewTree=..[Cat,iCat(N1,N2,Comp,Attr,Tree)] | iCat(Cat, Attr, NewTree).
+
+grow \ parseOrder([_|L]) <=> parseOrder(L).
 
 end_of_CHRG_source.
 
@@ -336,4 +350,4 @@ end_of_CHRG_source.
 % Growing only once existentials are done?
 % Remove restrictions where you can find constituency, e.g. VP constituency within Sentence for NP
 % order in which things expand!!!
-%doParse([jean,mange, une, pomme]).
+% doParse([jean,mange, une, pomme]).

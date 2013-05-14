@@ -2,38 +2,6 @@
    Aug 08, 2012
    Veronica Dahl and J.Emilio Miralles
    Grammar Sanctioning program
-
-   Version 1.15
-     -code cleanups
-     -no longer count unsats
-   Version 1.14
-     -all grammar properties are now constraints of the form g(Prop).
-     -init_grammar procedure now initializes all the g/1 constraints.
-     -these constraints are removed as soon as they are found to be unsatisfied by a sentence.
-     -counting no longer makes sense, as a second instance will never occur.
-   Version 1.13
-     -automate adding of unsat_c counters
-     -add all possible properties
-   Version 1.12
-     -change ambiguous cat/3 symbol to word/3
-     -keep unsat list after readout.
-   Version 1.11
-     -remove unused finished/0 and exclusion/4 constraints
-   Version 1.1
-     -added readout of sentence number and recommended grammar changes.
-   Version 1
-     -takes a list of sentences in the form of a Prolog predicate 
-      "string([[list],[of,sentences]])."
-     -checks for the violation of property grammar rules for 
-      obligatority(n), exclusion(adj,sup), requirement(n,det),unicity(det),
-      constituency(det),constituency(con),constituency(ver),
-      constituency(adj),constituency(sa),constituency(n),constituency(sup), 
-      precedence(det,n), precedence(det,adj),precedence(adj,n).
-     -creates a list of unsatisfied properties in 
-      unsat([prop1, prop2, ...]) chr constraint.
-     -counts each instance of the unsatisfied property in 
-      unsat_c([prop, count]) chr constraint.
-
 */
 
 :- compile('chrg').		

@@ -1,39 +1,9 @@
 /* 
-   Aug 08, 2012
-   Veronica Dahl and J.Emilio Miralles
-   Grammar Sanctioning program
-
-   Version 1.15
-     -code cleanups
-     -no longer count unsats
-   Version 1.14
-     -all grammar properties are now constraints of the form g(Prop).
-     -init_grammar procedure now initializes all the g/1 constraints.
-     -these constraints are removed as soon as they are found to be unsatisfied by a sentence.
-     -counting no longer makes sense, as a second instance will never occur.
-   Version 1.13
-     -automate adding of unsat_c counters
-     -add all possible properties
-   Version 1.12
-     -change ambiguous cat/3 symbol to word/3
-     -keep unsat list after readout.
-   Version 1.11
-     -remove unused finished/0 and exclusion/4 constraints
-   Version 1.1
-     -added readout of sentence number and recommended grammar changes.
-   Version 1
-     -takes a list of sentences in the form of a Prolog predicate 
-      "string([[list],[of,sentences]])."
-     -checks for the violation of property grammar rules for 
-      obligatority(n), exclusion(adj,sup), requirement(n,det),unicity(det),
-      constituency(det),constituency(con),constituency(ver),
-      constituency(adj),constituency(sa),constituency(n),constituency(sup), 
-      precedence(det,n), precedence(det,adj),precedence(adj,n).
-     -creates a list of unsatisfied properties in 
-      unsat([prop1, prop2, ...]) chr constraint.
-     -counts each instance of the unsatisfied property in 
-      unsat_c([prop, count]) chr constraint.
-
+  15/05/2013
+  Implemented for "On Failure-Driven Constraint-Based Parsing through CHRG",
+  Veronica Dahl, Sinan Eğilmez, João Martins and J. Emilio Miralles
+  
+  Based on previous code from Veronica Dahl and J. Emilio Miralles.
 */
 
 :- compile('chrg').		
@@ -108,6 +78,7 @@ init_grammar :- tpl(constituency(sentence, [np, vp])),
                 tpl(precedence(vp,v,np)),
                 tpl(requirement(np, n, det)),
                 tpl(requirement(sentence, np, vp)),
+                %tpl(obligatority(vp, np)), % enable if verbs must have complements
                 tpl(unicity(sentence,vp)),
                 tpl(unicity(sentence,np)),
                 tpl(unicity(vp,v)),
@@ -120,7 +91,7 @@ init_grammar :- tpl(constituency(sentence, [np, vp])),
                 % This one allows VPs to grow into subjects, but not for sentences to be created
                 %relaxable([unicity(vp,np),precedence(np,det,n),precedence(vp,v,np)]),
                 % This one allows NPs to have determiners after the noun.
-                %relaxable([unicity(vp,np),precedence(np,det,n)]),
+                %relaxable([precedence(np,det,n)]),
                 % This one does proper parsing :)
                 relaxable([]),
                 %relaxable([exclusion(np,det,pn)]),
@@ -346,7 +317,7 @@ clean , all(_,_)      <=> true.
 end_of_CHRG_source.
 
 % TODO LIST
-% doParse([le, pomme]). - dependence works, but then the NP isn't removed. Requirement?
+% doParse([le, pomme]). % fails dependence(no, det, m)
 
 
 % doParse([jean,mange, une, pomme]).

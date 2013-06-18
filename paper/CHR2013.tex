@@ -11,18 +11,30 @@
 \usepackage{url}
 \usepackage{makeidx}  % allows for indexgeneration
 \usepackage{graphicx}
+\usepackage{float}
 \usepackage{hyperref}
 \usepackage{verbatim}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows}
+
 
 
 \newcommand{\constituency}[2]{\textit{#1} : \textit{#2}}
 \newcommand{\obligation}[2]{\textit{#1} : \triangle \textit{#2}}
-\newcommand{\uniqueness}[2]{\textit{#1} : \textit{#2} !}
+\newcommand{\uniqueness}[2]{\textit{#1} : \textit{#2}\,!}
 \newcommand{\precedence}[3]{\textit{#1} : \textit{#2} \prec \textit{#3}}
 \newcommand{\requirement}[3]{\textit{#1} : \textit{#2} \Rightarrow \textit{#3}}
 \newcommand{\exclusion}[3]{\textit{#1} : \textit{#2} \not\Leftrightarrow \textit{#3}}
 \newcommand{\dependency}[3]{\textit{#1} : \textit{#2} \sim \textit{#3}}
 
+\newcommand{\PN}{\textit{PN}\xspace}
+\newcommand{\NP}{\textit{NP}\xspace}
+\newcommand{\VP}{\textit{VP}\xspace}
+\newcommand{\Se}{\textit{S}\xspace}
+\newcommand{\N}{\textit{N}\xspace}
+\newcommand{\V}{\textit{V}\xspace}
+\newcommand{\D}{\textit{D}\xspace}
+\newcommand{\ADJ}{\textit{ADJ}\xspace}
 
 %
 \begin{document}
@@ -92,15 +104,14 @@ The idea of representing a language's grammar solely through properties between 
   \item[Requirement]$\requirement{A}{B}{C}$, if $B$ is a child, then also $C$ is a child
   \item[Exclusion]$\exclusion{A}{B}{C}$, $B$ and $C$ children are mutually exclusive
   \item[Dependency]$\dependency{A}{B}{C}$, the features of C1 and C2 are the same
-
 \end{description}
 
-\begin{example} For example, the context free rules $\textit{NP}\to D N$ and $\textit{NP} \to N$ can be translated into the following constraints: $\constituency{NP}{\{D, N\}}, \uniqueness{NP}{D}, \obligation{NP}{N}, \uniqueness{NP}{N}, \precedence{NP}{D}{N}, \constituency{D}{\{\}}, \constituency{N}{\{\}}$.
+This paper will handle full sentences, so that we will generally denote determiners by \D, nouns by \N, personal nouns by \PN, verbs by \V, noun phrases by \NP, verb phrases by \VP and sentences by \Se.
 
+\begin{example} For example, the context free rules $\NP\to D\ N$ and $\NP \to N$, which determine what a noun phrase is, can be equivalently translated into the following equivalent constraints: $\constituency{NP}{\{D, N\}}, \uniqueness{NP}{D}, \obligation{NP}{N}, \uniqueness{NP}{N}, \precedence{NP}{D}{N}, \constituency{D}{\{\}}, \constituency{N}{\{\}}$.
 \end{example}
 
-%
-In some of the literature on PG there is the possibility of declaring some constraints as relaxable. If they fail, their failure  is signalled in the output, but does not block the entire sentence's analysis.  Implementations not including constraint relaxation capabilities implicitly consider all properties as relaxable.
+The larger number of constraints allows us to perceive and understand the grammar rules in a more detailed fashion. Furthermore, this finer granularity can be exploited: in some of the literature on PG there is the possibility of declaring some constraints as relaxable. The failure of relaxable contraints is signalled in the output, but does not block the entire sentence's analysis.  Implementations not including constraint relaxation capabilities implicitly consider all properties as relaxable.
 
 
  
@@ -142,8 +153,8 @@ Each word is stored in a CHRG symbol word/3, along with its category, its mother
 
 Womb Parsing works  by adjusting the  constraints given in the source grammar until they suit the input corpus. Since this corpus is chosen to be correct and representative, we're justified e.g. in deleting any constraints that the corpus violates.
 
-For instance, if the source grammar contains the precedence constraint $\precedence{np}{n}{adj}$
-and there is an input noun phrase in which an adjective precedes a noun, a CHRG rule will apply and delete the above precedence constraint.
+For instance, if the source grammar contains the precedence constraint $\precedence{\NP}{\N}{\ADJ}$
+and there is an input noun phrase in which an adjective precedes a noun, a CHRG rule will apply and delete the above precedence constraint. Thus, the constraint was checked for violation, not satisfaction.
 
 Each of the properties in PG has similar rules associated with it. Our proposal here is to adapt these rules into admitting constraint relaxation and signalling failure of non-relaxed constraints that do not satisfy input sentences, rather than adjusting the constraints that failed. Furthermore, the method works on complex sentences rather than just noun phrases.
 
@@ -154,34 +165,83 @@ The Womb Parsing method of adapting another language's grammar constraints  unti
 \begin{example}In ``john eats an apple'', the noun indicates the existence of a noun phrase. Because noun $\constituency{NP}{\{D, N\}}$, then the tentative noun phrase starting at ``apple'' can include ``an'' but not ``eats'', since it can only be constituted by determiners and nouns. This is the constraint-satisfaction criterion for expansion.
 \end{example}
 
-For each tentatively expanded phrase, all other constraints are tested for \emph{failure} only. The phrase is allowed to expand only if either no constraint fails, or all constraints that fail have been declared as relaxable. Exhaustive satisfaction check is thus replaced by a smart guided search for a falsifying assignment. This is appropriate provided that  the set of satisfied constraints is the exact complement of the set of failed constraints- an assumption that seems reasonable, and that we make. In this case, it follows that we do not need to check the satisfied constraints.  Just as for grammar induction we do not need to touch the constraints of the source grammar that do work for the target grammar,  we can for PGs  only actively check  the constraints that do not hold. Should we need to explicitly output those that hold, they could be inferred  from the list of constraints that must be satisfied plus those output as unsatisfied, at less computational cost than the usual practice of evaluating  all constraints between every pair of constituents, or of adding heuristics to reduce the search space.
+For each tentatively expanded phrase, all other constraints are tested for \emph{failure} only. The phrase is allowed to expand only if either no constraint fails, or all constraints that fail have been declared as relaxable. Exhaustive satisfaction check is thus replaced by a smart guided search for a falsifying assignment. This is appropriate provided that  the set of satisfied constraints is the exact complement of the set of failed constraints - an assumption that seems reasonable, and that we make. In this case, it follows that we do not need to check the satisfied constraints.  Just as for grammar induction we do not need to touch the constraints of the source grammar that do work for the target grammar,  we can for PGs  only actively check  the constraints that do not hold. Should we need to explicitly output those that hold, they could be inferred  from the list of constraints that must be satisfied plus those output as unsatisfied, at less computational cost than the usual practice of evaluating  all constraints between every pair of constituents, or of adding heuristics to reduce the search space.
 
 This is significant because deep parsing with Property Grammars is theoretically exponential in the number of categories of the grammar and the size of the sentence to parse \cite{vanRullen2005}. Since all previous approaches to PG parsing (except for Womb Parsing) have to calculate all constraints between every pair of constituents, and since the number of failed constraints will in general be much smaller than the number of satisfied constraints,  any parsing methodology that manages to mostly check the failed ones will have a substantial efficiency advantage. If moreover the failed constraints can be checked in the automatic workings of a truly constraint solving formulation like our CHRG one, by means of letting those rules that apply to each particular input sentence trigger, we now have more realistic hopes of turning (our version of) the PG paradigm, which we  call Direct PG, into a useful, directly executable constraint-based theory of language. In this first paper we address this hope from the point of view of direct parsing for ungrammaticality detection.
 
 
 \subsection{Phrase Determination}
 
-In \cite {DM12}, where we only dealt with noun phrases, constituency did not need to be checked explicitly, because it followed from a lexicon made only from noun phrase constituents. The core idea was to start the noun phrase from its head noun, and try to expand it. Expansion would fail if any of the grammatical constraints failed. Since in this work we need to treat whole sentences, some additional considerations are necessary:
+In \cite {DM12}, where we only dealt with noun phrases, constituency did not need to be checked explicitly, because it followed from a lexicon made only from noun phrase constituents. The core idea was to start the noun phrase from its head noun, and try to expand it. Expansion would fail if any of the grammatical constraints failed.
+
+More concretely, one expands instantiated categories, which are CHRG predicates of the type \texttt{iCat(CategoryType, Attributes, Tree):(Start,End)}. Instantiated categories simply keep track of the location, attributes and trees of all categories in a specific sentence. Words such as ``an'' and ``apple'' are converted initially into instantiated categories for \D and \N respectively.
+
+Since in this work we need to treat whole sentences rather than just noun phrases, some additional considerations are necessary:
 \begin{itemize}
-  \item Whereas in \cite {DM12} it was implicit that noun phrases grew from its noun core, for full sentences each phrase must have its own \emph{head}. These heads follow closely from the grammar itself and the obligation constraints it implies. For example, much like nouns are the heads of noun phrases, verbs are the heads of verb phrases and, in turn, verb phrases are the heads of sentences.
+  \item Whereas in \cite {DM12} it was implicit that noun phrases grew from its noun core, for full sentences each category must have its own \emph{head}. These heads follow closely from the grammar itself and the obligation constraints it implies. In our case, we have:
+\begin{verbatim}  head(n, np). head(pn, np). head(v, vp). head(vp, sentence).\end{verbatim}
   
-  \item For full sentences, the extra complexity requires phrases to be treated in a specific ordering. For example, because a verb phrase can contain noun phrases, noun phrases should be treated before verb phrases. The ordering is currently specified as part of the grammar, though it can be induced from the directed constituency graph.
+  \item For full sentences, the extra complexity requires phrases to be treated in a specific ordering. For example, because a verb phrase can contain noun phrases, noun phrases should be treated before verb phrases, and verb phrases should be parsed before sentences. The ordering is currently specified as part of the grammar, though it could be induced from the directed constituency graph implied by a grammar. For the sentences we consider, the following order is used:
+\begin{verbatim}                  parseOrder([np,vp,sentence]).\end{verbatim}
   
-  \item While the PG formalism per se does not care about syntactic trees (it just characterizes an input sentence through its lists of satisfied and unsatisfied properties), they are important for complex sentences, and are thus built as a side-effect of the algorithm. Not only is this handy to the traditional way in which linguists are used to thinking of a parse result, but it is also useful to ensure that the constraints apply on immediate daughters only. For instance, ``john eats an apple'' contains two noun phrases, ``john'' and ``an apple'', but only `john'' is a direct daughter (``an apple'' is a direct daughter of the verb phrase ``eats an apple''). Therefore, the obligation of a noun phrase $\textit{NP}$ in a sentence $S$, $\obligation{S}{NP}$, should not fail.
+  \item While the PG formalism per se does not care about syntactic trees (it just characterizes an input sentence through its lists of satisfied and unsatisfied properties), they are important for complex sentences, and are thus built as a side-effect of the algorithm. Not only is this handy to the traditional way in which linguists are used to thinking of a parse result, but it is also useful to ensure that the constraints apply on immediate daughters only. For instance, consider the parse tree of ``john eats an apple'' in Figure \ref{fig:tree}. It contains two noun phrases, ``john'' and ``an apple'', but only `john'' is a direct daughter of the sentence (``an apple'' is a direct daughter of the verb phrase ``eats an apple''). Therefore, the uniqueness of a noun phrase $\NP$ in a sentence \Se, $\uniqueness{\Se}{\NP}$, should not fail.
+
+\begin{figure}[H]
+\begin{center}
+  \begin{tikzpicture}[>=latex, auto] 
+  \tikzstyle{argument}=[draw, shape=rectangle, minimum size=8mm];
+  \tikzstyle{leaf}=[draw, shape=ellipse, minimum size=8mm];
+  \node [argument, label=left:\Se] (S) at (1,0){john eats an apple};
+  \node [argument, label=left:\NP] (NPP) at (0,-1.5){john};
+  \node [leaf, label=left:\PN] (PN) at (-1,-3){john};
+  \node [argument, label=right:\VP] (VP) at (2, -1.5){eats an apple};
+  \node [leaf, label=left:\V] (V) at (1, -3){eats};
+  \node [argument, label=right:\NP] (NP) at (3, -3){an apple};
+  \node [leaf, label=left:\D] (D) at (2, -4.5){an};
+  \node [leaf, label=right:\N] (N) at (4, -4.5){apple};
+  \draw [->] (S) to (NPP);
+  \draw [->] (S) to (VP);
+  \draw [->] (NPP) to (PN);
+  \draw [->] (VP) to (V);
+  \draw [->] (VP) to (NP);
+  \draw [->] (NP) to (D);
+  \draw [->] (NP) to (N);
+  %\node [argument, label=left:$\alpha_1/\beta_1$](a) at (0, 0){$\cdot$};
+  %\node [labelling](pclabel) at (0,4.25){\textbf{Power Controller}};
+  %\node [argument, label=above:\text{Normal(5, 1)}](pc) at (0, 3){$\cdot$};
+  %\draw [<-] (pc) to [loop left] (pc) node [midway, text width=1.9cm]{$\asnd[g_{o}][G_o]$ p = 0.4}; % Transmitting
+  \end{tikzpicture}
+  \caption{Parse tree of the sentence.}
+  \label{fig:tree}
+  \end{center}
+\end{figure}
 \end{itemize}
 
-The algorithm thus works as follows. If there is an expansion for the phrase type being treated (e.g. \textit{NP}) that does not falsify unrelaxable constraints, the expansion is carried out. If no more expansions are possible, then phrases of the next type are created by considering heads from the current phrases.
+Taking all these considerations into account, the rules for creating new categories from their heads is the following.
+\begin{verbatim}
+iCat(Comp,Attr,Tree):(N1,N2), {parseOrder([Cat|_])}
+  ::> head(Comp, Cat), NewTree=..[Cat,iCat(N1,N2,Comp,Attr,Tree)]
+  | iCat(Cat, Attr, NewTree).
+\end{verbatim}
+
+%TODO  talk about location of the above rule!!!
+
+
+%TODO talk about expansion!
+
+
+The algorithm thus works as follows. If there is an expansion for the phrase type being treated (e.g. \NP) that does not falsify unrelaxable constraints, the expansion is carried out. If no more expansions are possible, then phrases of the next type are created by considering heads from the current phrases.
 
 \begin{example}
-  Consider our running example of ``john eats an apple'' again and the following context free grammar (stated in bottom-up fashion), $\textit{PN} \to \textit{NP}$; $D, N \to \textit{NP}$; $V,\textit{NP} \to \textit{VP}$; $N, \textit{VP} \to S$, where $\textit{PN}$ is a proper noun and $S$ a sentence. \textit{N}s and \textit{PN}s are the heads of \textit{NP}s, \textit{V}s of \textit{VP}s and \textit{VP}s of \textit{S}s.
+  Consider our running example of ``john eats an apple'' again and the following context free grammar (stated in bottom-up fashion), $\PN \to \NP$; $D, N \to \NP$; $V,\NP \to \VP$; $N, \VP \to S$, where $\PN$ is a proper noun and $S$ a sentence. \N and \PN are the heads of \NP, \V of \VP and \VP of \Se.
   
-  The induced ordering is $\textit{NP},\textit{VP},\textit{S}$. Let us also consider the constraints expected to be induced from the grammar, rather than the grammar itself.
+  The induced ordering is $\NP,\VP,\Se$. Let us also consider the constraints expected to be induced from the grammar, rather than the grammar itself.
 
-The algorithm thus starts by creating the \textit{NP}s ``john'' and ``apple''. The \textit{NP} ``apple'' is expandable to ``an apple'', and then no more expansions are possible since $\constituency{NP}{\{D, N\}}$. Therefore, we now consider \textit{VPs}, and create one from the head ``eats''. Since $\constituency{VP}{\{V, NP\}}$, the \textit{VP} is expandable to both left and right. The right expansion succeeds, whereas the left one falsifies $\precedence{VP}{V}{NP}$, and is not carried out.
+The algorithm thus starts by creating the \NP s ``john'' and ``apple''. The \NP ``apple'' is expandable to ``an apple'', and then no more expansions are possible since $\constituency{NP}{\{D, N\}}$. Therefore, we now consider \textit{VPs}, and create one from the head ``eats''. Since $\constituency{VP}{\{V, NP\}}$, the \VP is expandable to both left and right. The right expansion succeeds, whereas the left one falsifies $\precedence{VP}{V}{NP}$, and is not carried out.
 
-Since no more expansions are possible for \textit{VP}s, a \textit{S} is created from the \textit{VP} and expanded to the entire sentence. However, suppose that $\precedence{VP}{V}{NP}$ were relaxable. Then, the \textit{VP} would expand both left and right, encompassing the whole sentence. With no more expansions possible, a sentence $S$ would be created, thereby violating the obligation $\obligation{S}{N}$, and would thus be retracted. This parse would not result in a sentence. If that restriction were, in turn, relaxable, the parse would keep the \textit{S} instead of retracting it.
+Since no more expansions are possible for \VP s, a \Se is created from the \VP and expanded to the entire sentence. However, suppose that $\precedence{VP}{V}{NP}$ were relaxable. Then, the \VP would expand both left and right, encompassing the whole sentence. With no more expansions possible, a sentence $S$ would be created, thereby violating the obligation $\obligation{S}{N}$, and would thus be retracted. This parse would not result in a sentence. If that restriction were, in turn, relaxable, the parse would keep the \Se instead of retracting it.
 
-If no constraints were relaxable, ``john eats apple'' would not parse a sentence \textit{S} (or a \textit{VP} or even an \textit{NP}) because nouns must have determiners, i.e. $\requirement{NP}{N}{D}$. If that were relaxed, however, the entire sentence would be parsed with no further complications! This highlights the flexibility of the approach.
+If no constraints were relaxable, ``john eats apple'' would not parse a sentence \Se (or a \VP or even an \NP) because nouns must have determiners, i.e. $\requirement{NP}{N}{D}$. If that were relaxed, however, the entire sentence would be parsed with no further complications! This highlights the flexibility of the approach.
 \end{example}
 
 \subsection{A useful distinction: Permanent and Changing Constraints}
@@ -230,9 +290,9 @@ which represents phrases, and of which you should feel free to ignore the last, 
 \subsection{Grammar and suggested examples}
 The grammar can be found in the \texttt{ng.pl} file, under the predicate \texttt{init\_grammar}, which initialises it. It contains a few suggested relaxable predicates, which should be run with the above example, \texttt{?- doParse([jean, mange, une, pomme]).}.
 Another suggestion is running \texttt{?- doParse([jean, mange, pomme, une]).} with no relaxable predicates, and running it with the suggested relaxation of 
-\texttt{precedence(np,det,n)}, also in the file. This will show that a failure at the very basic \textit{NP} level will not interfere with further parsing.
-Other suggestions are \texttt{?- doParse([jean, mange, pomme]).}, by relaxing the requirement constraint between nouns and determiners, or \texttt{?- doParse([le, jean, mange, une, pomme]).} and the related exclusion constraint between \textit{PN} and \textit{D}.
-It is also interesting to add or remove the constraint that \textit{VP} should have \textit{NP} (commented in the file), causing parsing to stop with \texttt{pomme, une} or just \texttt{pomme} with no determiner.
+\texttt{precedence(np,det,n)}, also in the file. This will show that a failure at the very basic \NP level will not interfere with further parsing.
+Other suggestions are \texttt{?- doParse([jean, mange, pomme]).}, by relaxing the requirement constraint between nouns and determiners, or \texttt{?- doParse([le, jean, mange, une, pomme]).} and the related exclusion constraint between \PN and \D.
+It is also interesting to add or remove the constraint that \VP should have \NP (commented in the file), causing parsing to stop with \texttt{pomme, une} or just \texttt{pomme} with no determiner.
 
 
 \end{document}

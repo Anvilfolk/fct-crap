@@ -76,7 +76,7 @@ In this article we adapt and further develop  a CHRG parsing technique which was
 \section{Introduction}
 % 
 
-Since the advent of CHR \cite{Fruhwirth98} and of its grammatical counterpart CHRG \cite{Christiansen01}, constraint-based linguistic formalisms can materialize through fairly direct methodologies.   In this article we study several advantages of doing so. Efficiency-wise, direct CHRG renditions of linguistic constraints promote efficiency by their very adherence to  the constraint solving framework. We propose to enhance them further through exploiting our novel  methodology, arrived at through our work on grammar induction \cite{DM12}, of  checking only for falsification of most constraints in PG \cite{Blache} and similar formalisms.
+Since the advent of CHR \cite{Fruhwirth98} and of its grammatical counterpart CHRG \cite{Christiansen01}, constraint-based linguistic formalisms can materialize through fairly direct meth\-odologies.   In this article we study several advantages of doing so. Efficiency-wise, direct CHRG renditions of linguistic constraints promote efficiency by their very adherence to  the constraint solving framework. We propose to enhance them further through exploiting our novel  methodology, arrived at through our work on grammar induction \cite{DM12}, of  checking only for falsification of most constraints in PG \cite{Blache} and similar formalisms.
 %  
 
 Constraint-based theories of grammar  are by now widespread in computational linguistics, but there is still no general consensus on what comes under that umbrella. 
@@ -282,14 +282,14 @@ new categories when they are inferred, and it exploits a similar distinction bet
 \newpage
 \appendix
 \section{Appendix: Code, examples}
-For reviewing purposes, the code is available at \url{http://www.cs.cmu.edu/~jmartins/ng.pl}. It was implemented using SWI-Prolog (\url{http://www.swi-prolog.org/}) and CHRG (\url{http://akira.ruc.dk/~henning/chrg/}).
+For reviewing purposes, the code is available at the following repository: \url{http://www.cs.cmu.edu/~jmartins/ng.pl}. It was implemented using SWI-Prolog (\url{http://www.swi-prolog.org/}) and CHRG (\url{http://akira.ruc.dk/~henning/chrg/}).
 The suggested way of running it is by installing SWI-Prolog, downloading our source code and the CHRG source and putting them in the same folder. Then, run SWI-Prolog using \texttt{swipl}, and at the prompt \texttt{?- compile(ng).}. To parse phrases, use, for instance, \texttt{?- doParse([jean, mange, une, pomme]).}
 The output is hopefully self-evident, but the most important predicates are\\
 \texttt{iCat(left\_bound, right\_bound, phrase\_type, attributes, syntax\_tree)},\\
 which represents phrases, and of which you should feel free to ignore the last, very verbose argument, containing the syntax tree. Then, \texttt{evil/1} contains the list of retracted \texttt{iCat}s (due to constraint falsification), and the \texttt{unsat/1} contains the list of falsified but relaxed constraints.
 \subsection{Grammar and suggested examples}
 The grammar can be found in the \texttt{ng.pl} file, under the predicate \texttt{init\_grammar}, which initialises it. It contains a few suggested relaxable predicates, which should be run with the above example, \texttt{?- doParse([jean, mange, une, pomme]).}.
-Another suggestion is running \texttt{?- doParse([jean, mange, pomme, une]).} with no relaxable predicates, and running it with the suggested relaxation of 
+Another suggestion is running \texttt{?- doParse([jean, mange, pomme, une]).} \\ with no relaxable predicates, and running it with the suggested relaxation of \\ 
 \texttt{precedence(np,det,n)}, also in the file. This will show that a failure at the very basic \NP level will not interfere with further parsing.
 Other suggestions are \texttt{?- doParse([jean, mange, pomme]).}, by relaxing the requirement constraint between nouns and determiners, or \texttt{?- doParse([le, jean, mange, une, pomme]).} and the related exclusion constraint between \PN and \D.
 It is also interesting to add or remove the constraint that \VP should have \NP (commented in the file), causing parsing to stop with \texttt{pomme, une} or just \texttt{pomme} with no determiner.

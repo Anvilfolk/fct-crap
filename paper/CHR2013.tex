@@ -183,6 +183,10 @@ Since in this work we need to treat whole sentences rather than just noun phrase
   
   \item For full sentences, the extra complexity requires phrases to be treated in a specific ordering. For example, because a verb phrase can contain noun phrases, noun phrases should be treated before verb phrases, and verb phrases should be parsed before sentences. The ordering is currently specified as part of the grammar, though it could be induced from the directed constituency graph implied by a grammar. For the sentences we consider, the following order is used:
 \begin{verbatim}                  parseOrder([np,vp,sentence]).\end{verbatim}
+
+Eventually, after all categories of the type at the head of he list have been parsed and expanded, the algorithm moves on to the next category.
+\begin{verbatim}               parseOrder([_|L]) <=> parseOrder(L).
+\end{verbatim}
   
   \item While the PG formalism per se does not care about syntactic trees (it just characterizes an input sentence through its lists of satisfied and unsatisfied properties), they are important for complex sentences, and are thus built as a side-effect of the algorithm. Not only is this handy to the traditional way in which linguists are used to thinking of a parse result, but it is also useful to ensure that the constraints apply on immediate daughters only. For instance, consider the parse tree of ``john eats an apple'' in Figure \ref{fig:tree}. It contains two noun phrases, ``john'' and ``an apple'', but only `john'' is a direct daughter of the sentence (``an apple'' is a direct daughter of the verb phrase ``eats an apple''). Therefore, the uniqueness of a noun phrase $\NP$ in a sentence \Se, $\uniqueness{\Se}{\NP}$, should not fail.
 
@@ -224,7 +228,7 @@ iCat(Comp,Attr,Tree):(N1,N2), {parseOrder([Cat|_])}
   | iCat(Cat, Attr, NewTree).
 \end{verbatim}
 
-%TODO  talk about location of the above rule!!!
+This rule is found after the expansion and constraint satisfaction checks. This means it will only apply if \texttt{iCat(Comp,Attr,Tree):(N1,N2)} has been maximally expanded so that it does not violate unrelaxable constraints. After this rule applies, there will be a new instantiated category, which will in turn be expanded maximally, and checked against the constraints.
 
 
 %TODO talk about expansion!

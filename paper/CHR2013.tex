@@ -228,28 +228,52 @@ iCat(Comp,Attr,Tree):(N1,N2), {parseOrder([Cat|_])}
   | iCat(Cat, Attr, NewTree).
 \end{verbatim}
 
-This rule is found after the expansion and constraint satisfaction checks. This means it will only apply if \texttt{iCat(Comp,Attr,Tree):(N1,N2)} has been maximally expanded so that it does not violate unrelaxable constraints. After this rule applies, there will be a new instantiated category, which will in turn be expanded maximally, and checked against the constraints.
+This rule is found after the expansion and constraint satisfaction checks. This means it will only apply if \texttt{iCat(Comp,Attr,Tree):(N1,N2)} has been maximally expanded so that it does not violate unrelaxable constraints. After this rule applies, there will be a new instantiated category, which will in turn be expanded maximally, and checked against the constraints. Once no more checks or expansions can be done on any category of the current type, the parsing moves on to the next category type given by \texttt{parseOrder\textbackslash 1}.
 
+The expansion rules are a little more verbose, but the reader should now be acquainted with most predicates used. We present here a simplified version of the left-expansion rule (the right-expansion rule is symmetric).
 
-%TODO talk about expansion!
+\begin{verbatim}
+  !iCat(Comp, Attr1, Tree1):(N1,N2), 
+  iCat(Cat, Attr2, Tree2):(N2,N3),
+  !{tpl(constituency(Cat, L))},!{evil(EL)},
+  !{parseOrder([Cat|_])}
+ <:> member(Comp, L),
+     buildTree(Cat, iCat(N1,N2,Comp, Attr1, Tree1),
+                    iCat(N2,N3,Cat , Attr2, Tree2),
+                    Tree)
+ | iCat(Cat, Attr2, Tree):(N1,N3).
+\end{verbatim}
 
+Expansion considers two adjacent categories only. The component category will remain (e.g. the \D of an \NP), whereas the \texttt{iCat} of the expanding category is replaced by its expanded version. This rule is guided by constituency, so that senseless expansions do not occur, e.g. \NP can be expanded to include an adjacent \D (to the left or right!) but not a \V. A discussion of the location of the expansion rules is no knead breadmore appropriately found in Section \ref{ssec:constrs}.
 
-The algorithm thus works as follows. If there is an expansion for the phrase type being treated (e.g. \NP) that does not falsify unrelaxable constraints, the expansion is carried out. If no more expansions are possible, then phrases of the next type are created by considering heads from the current phrases.
+Notice that only constituency is checked at this point. The other constraints are deferred until after the expansion. Whenever an expansion causes some constraint to be falsified, a rule will fire to alert us to that effect. If the falsified constraint is relaxable, the algorithm is allowed to continue. If it is not, however, the expansion that caused the falsification is retracted, and reverts back to its unexpanded predecessor.
+
+\subsection{Algorithm overview}
+
+Since the specifics of the algorithm can get a little involved, it is perhaps helpful to abstract away the rules, their positions and the order in which they fire. In fact, the algorithm is conceptually extremely simple.
+
+\begin{enumerate}
+\item If there is an instantiated category of the type being handled (e.g. \NP, \VP, \Se) that can be expanded without violating unrelaxable constraints, the expansion is carried out. Violated relaxable constraints are stored for reference.
+\item If no more expansions are possible and there is an instantiated category can be a head for the category being handled, then a new instantiated category of that type is created from the head.
+\item If no more expansions are possible and there are no more potential heads, the algorithm proceeds to handle the next category type.
+\end{enumerate}
 
 \begin{example}
   Consider our running example of ``john eats an apple'' again and the following context free grammar (stated in bottom-up fashion), $\PN \to \NP$; $D, N \to \NP$; $V,\NP \to \VP$; $N, \VP \to S$, where $\PN$ is a proper noun and $S$ a sentence. \N and \PN are the heads of \NP, \V of \VP and \VP of \Se.
   
-  The induced ordering is $\NP,\VP,\Se$. Let us also consider the constraints expected to be induced from the grammar, rather than the grammar itself.
+  The parse ordering associated with these rules is $\NP,\VP,\Se$. We will consider the constraints induced from the grammar rather than the grammar itself.
 
-The algorithm thus starts by creating the \NP s ``john'' and ``apple''. The \NP ``apple'' is expandable to ``an apple'', and then no more expansions are possible since $\constituency{NP}{\{D, N\}}$. Therefore, we now consider \textit{VPs}, and create one from the head ``eats''. Since $\constituency{VP}{\{V, NP\}}$, the \VP is expandable to both left and right. The right expansion succeeds, whereas the left one falsifies $\precedence{VP}{V}{NP}$, and is not carried out.
+The algorithm thus starts by creating the leaf instantiated categories for the \PN, \N, \D, and \V words. Then, the \NP{}s ``john'' and ``apple'' are created from the respective \PN and \N heads. The \NP ``apple'' is expandable to ``an apple'', and then no more expansions are possible for ``john'' or ``an appple', since $\constituency{NP}{\{D, N\}}$.
 
-Since no more expansions are possible for \VP s, a \Se is created from the \VP and expanded to the entire sentence. However, suppose that $\precedence{VP}{V}{NP}$ were relaxable. Then, the \VP would expand both left and right, encompassing the whole sentence. With no more expansions possible, a sentence $S$ would be created, thereby violating the obligation $\obligation{S}{N}$, and would thus be retracted. This parse would not result in a sentence. If that restriction were, in turn, relaxable, the parse would keep the \Se instead of retracting it.
+The algorithm thus moves to \VP{}s, and create one from the \V head ``eats''. Since $\constituency{VP}{\{V, NP\}}$, the \VP is expandable to both left, for ``john'' and right, for ``an apple''. The right expansion succeeds without problems. The left expansion falsifies the precedence $\precedence{VP}{V}{NP}$, and is therefore not carried out.
+
+Since no more expansions are possible for \VP{}s, a \Se is created from the \VP and expanded to ``john'', creating he full sentence. However, suppose that $\precedence{VP}{V}{NP}$ were relaxable. Then, the \VP would expand both left and right, encompassing the whole sentence. With no more expansions possible, a sentence $S$ would be created from the \VP containing the whole sentence, thereby violating the obligation $\obligation{\Se}{\NP}$ (since the constraint requires \NP as a direct \emph{direct} daughter), and would thus be retracted. This parse would not result in a sentence. If that restriction were, in turn, relaxable, the parse would keep the \Se instead of retracting it.
 
 If no constraints were relaxable, ``john eats apple'' would not parse a sentence \Se (or a \VP or even an \NP) because nouns must have determiners, i.e. $\requirement{NP}{N}{D}$. If that were relaxed, however, the entire sentence would be parsed with no further complications! This highlights the flexibility of the approach.
 \end{example}
 
 \subsection{A useful distinction: Permanent and Changing Constraints}
-
+\label{ssec:constrs}
 
 Notice that CHRG rules  for constraints such as precedence can be allowed to apply  immediately after the two constituents they involve show up in the constraint store, no matter what stage of parsing we are at.  This is because as soon as the constraint can be evaluated, its value is \emph{permanent}. Once it fails, adding new constituents to the category cannot make it succeed, since e.g. two unordered elements will remain unordered even when adding more elements around them.  Accordingly, our methodology only checks for failure of permanent constraints, regardless of at what stage they fail.
 
@@ -259,6 +283,7 @@ constraint had an opposite value. Thus, for ``a red apple'',  at the point in wh
 
 For the other type of changing constraints, called \emph{filtering} constraints, the addition of one more element into a phrase might make the constraint fail where it succeeded before. As an example, while unicity of determiner holds for ``the book'', it no longer holds for ``the the book''. Since the rules that check this type of constraint are triggered only when the constraint fails (e.g. when two determiners show up inside a noun phrase), there is no need for waiting mechanisms, or for any maximal expansion to precede their checking. In this sense our approach is much more focused than previous ones. 
 
+% TODO add rules here and explain order
 
 \subsection{Constraint Relaxation}
 

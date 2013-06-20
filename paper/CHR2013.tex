@@ -174,17 +174,31 @@ This is significant because deep parsing with Property Grammars is theoretically
 
 In \cite {DM12}, where we only dealt with noun phrases, constituency did not need to be checked explicitly, because it followed from a lexicon made only from noun phrase constituents. The core idea was to start the noun phrase from its head noun, and try to expand it. Expansion would fail if any of the grammatical constraints failed.
 
-More concretely, one expands instantiated categories, which are CHRG predicates of the type \texttt{iCat(CategoryType, Attributes, Tree):(Start,End)}. Instantiated categories simply keep track of the location, attributes and trees of all categories in a specific sentence. Words such as ``an'' and ``apple'' are converted initially into instantiated categories for \D and \N respectively.
+More concretely, one expands instantiated categories, which are CHRG predicates of the type \texttt{iCat(Start, End, CategoryType, Attributes, Tree)}. Instantiated categories simply keep track of the location, attributes (gender and plurality) and parse tree of all categories, or phrase types, in a specific sentence (e.g. \N, \NP, etc).
+
+\begin{example}[Instantiated categories] \label{ex:icat} Take the noun phrase ``an apple'' in French, or ``une pomme'', which is feminine. Parsing it results in the following instantiated categories.
+\begin{verbatim}
+            iCat(0, 1, det, [sing,fem], det(un))
+            iCat(1, 2, n,   [sing,fem], n(pomme))
+            iCat(0, 2, np,  [sing,fem],
+              np(
+                iCat(0, 1, det, [sing,fem], det(un)),
+                iCat(1, 2, n,   [sing,fem], n(pomme))
+              )
+            )
+\end{verbatim}
+
+Notice that the \NP inherits the attributes of the underlying \N, which is important for the dependency constraints; and that a tree is built as a side-effect from parsing.\end{example}
 
 Since in this work we need to treat whole sentences rather than just noun phrases, some additional considerations are necessary:
 \begin{itemize}
-  \item Whereas in \cite {DM12} it was implicit that noun phrases grew from its noun core, for full sentences each category must have its own \emph{head}. These heads follow closely from the grammar itself and the obligation constraints it implies. In our case, we have:
+  \item Whereas in \cite {DM12} it was implicit that noun phrases grew from their noun core, for full sentences each category must have its own \emph{head}. These heads follow closely from the grammar itself and the obligation constraints it implies. In our case, we have:
 \begin{verbatim}  head(n, np). head(pn, np). head(v, vp). head(vp, sentence).\end{verbatim}
   
-  \item For full sentences, the extra complexity requires phrases to be treated in a specific ordering. For example, because a verb phrase can contain noun phrases, noun phrases should be treated before verb phrases, and verb phrases should be parsed before sentences. The ordering is currently specified as part of the grammar, though it could be induced from the directed constituency graph implied by a grammar. For the sentences we consider, the following order is used:
+  \item For full sentences, the extra complexity requires phrases to be treated in a specific ordering. For example, because a verb phrase can contain noun phrases, noun phrases should be parsed before verb phrases, and verb phrases should be parsed before sentences. The ordering is currently specified as part of the grammar, though it could be induced from the directed constituency graph implied by a grammar. For the sentences we consider, the following order is used:
 \begin{verbatim}                  parseOrder([np,vp,sentence]).\end{verbatim}
 
-Eventually, after all categories of the type at the head of he list have been parsed and expanded, the algorithm moves on to the next category.
+After all categories of the type at the head of the list have been parsed and expanded, the algorithm moves on to the next category.
 \begin{verbatim}               parseOrder([_|L]) <=> parseOrder(L).
 \end{verbatim}
   
@@ -244,9 +258,25 @@ The expansion rules are a little more verbose, but the reader should now be acqu
  | iCat(Cat, Attr2, Tree):(N1,N3).
 \end{verbatim}
 
-Expansion considers two adjacent categories only. The component category will remain (e.g. the \D of an \NP), whereas the \texttt{iCat} of the expanding category is replaced by its expanded version. This rule is guided by constituency, so that senseless expansions do not occur, e.g. \NP can be expanded to include an adjacent \D (to the left or right!) but not a \V. A discussion of the location of the expansion rules is no knead breadmore appropriately found in Section \ref{ssec:constrs}.
+Expansion considers two adjacent categories only. The component category will remain (e.g. the \D of an \NP), whereas the \texttt{iCat} of the expanding category is replaced by its expanded version. This rule is guided by constituency, so that senseless expansions do not occur, e.g. \NP can be expanded to include an adjacent \D (to the left or right!) but not a \V. A discussion of the location of the expansion rules is more appropriately found in Section \ref{ssec:constrs}.
 
 Notice that only constituency is checked at this point. The other constraints are deferred until after the expansion. Whenever an expansion causes some constraint to be falsified, a rule will fire to alert us to that effect. If the falsified constraint is relaxable, the algorithm is allowed to continue. If it is not, however, the expansion that caused the falsification is retracted, and reverts back to its unexpanded predecessor.
+
+We now present a couple of examples of such constraint violation rules for the reader's benefit. First, the precedence rule $\precedence{Cat}{C1}{C2}$:
+
+\begin{verbatim}
+  iCat(C2,Attr2,Tree2):(N1,N2), ... , % Found C2
+  iCat(C1,Attr1,Tree1):(N3,N4),       % Found C1 (after C2)
+  {iCat(N5,N6,Cat,_,Tree)},           % Found Cat (somewhere)
+  {tpl(precedence(Cat,C1,C2))}        % Cat: C1 < C2
+  ::> % Cat encompasses C1 and C2
+      N5 =< N1, N4 =< N6, Tree=..[Cat|T],
+      % C1 and C2 are direct daughters of Cat
+      member(iCat(N1,N2,C2,Attr2,Tree2), T),
+      member(iCat(N3,N4,C1,Attr1,Tree1), T)
+  | falsify(precedence(Cat,C1,C2)):(N1,N4),   % Precedence falsified!
+    {failed(g(N1,N4,precedence(Cat,C1,C2)))}. % Failure of tentative category
+\end{verbatim}
 
 \subsection{Algorithm overview}
 

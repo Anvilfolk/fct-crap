@@ -68,7 +68,7 @@ Computer Science Department, Carnegie Mellon University, Pittsburgh PA\\
 
 \begin{abstract}
 
-In this article we adapt and further develop  a CHRG parsing technique which was initially developed in the context of grammar induction for Womb Grammars \cite{DM12}, and we show that applying it to constraint-based linguistic formalisms such as Property Grammars \cite{Blache} can yield truly direct implementations of specialized parsers that focus on ungrammaticality detection and correction.
+In this article we adapt and further develop  a CHRG parsing technique which was initially conceived in the context of grammar induction for Womb Grammars \cite{DM12}. We also show that applying it to constraint-based linguistic formalisms such as Property Grammars \cite{Blache} can yield truly direct implementations of specialized parsers that focus on ungrammaticality detection and correction.
 
 \end{abstract}
 %
@@ -119,7 +119,7 @@ The larger number of constraints allows us to perceive and understand the gramma
 \subsection{Womb Grammar Parsing}
 
 %
- Womb Grammar Parsing   is a constraint-based parsing methodology developed in 2012 \cite {DM12}, motivated by the need to aid the world's linguist uncover the syntax of the myriads of languages that are not being studied for lack of resources.
+ Womb Grammar Parsing   is a constraint-based parsing methodology developed in 2012 \cite {DM12}, motivated by the need to aid the world's linguist uncover the syntax of the many languages that are not being studied for lack of resources.
 It was designed to induce a target language's syntax from the known syntax of a source language plus a representative corpus of correct sentences in the target language and the target language's known lexicon.  It was presented in two versions: Hybrid Womb Parsing, in which the source language is an existing language for which the syntax is known, and Universal Womb Parsing,  in which the source syntax is a hypothetical universal grammar of the authors' own devise, which contains all possible properties between pairs of constituents.
 
 Womb Parsing has the originality of addressing through constraint solving a problem  which more usually is cast as a machine learning problem. Additionally, it fully applies the technique of using  linguistic information from one language for the task of describing another language, which until then had  yielded good results only for specific tasks---such as disambiguating the other language \cite{BurkKlein:2008}, or fixing morphological or syntactic differences by modifying tree-based rules \cite{Nicolas:towardsefficient}---rather than for syntax induction.
@@ -156,7 +156,7 @@ Womb Parsing works  by adjusting the  constraints given in the source grammar un
 For instance, if the source grammar contains the precedence constraint $\precedence{\NP}{\N}{\ADJ}$
 and there is an input noun phrase in which an adjective precedes a noun, a CHRG rule will apply and delete the above precedence constraint. Thus, the constraint was checked for violation, not satisfaction.
 
-Each of the properties in PG has similar rules associated with it. Our proposal here is to adapt these rules into admitting constraint relaxation and signalling failure of non-relaxed constraints that do not satisfy input sentences, rather than adjusting the constraints that failed. Furthermore, the method works on complex sentences rather than just noun phrases.
+Each of the properties in PG has similar CHRG rules associated with it. Our proposal here is to adapt these rules into admitting constraint relaxation and signalling failure of non-relaxed constraints that do not satisfy input sentences, rather than adjusting the constraints that failed. Furthermore, the method works on complex sentences rather than just noun phrases.
 
 \subsection{Significance}
 
@@ -192,7 +192,7 @@ Notice that the \NP inherits the attributes of the underlying \N, which is impor
 
 Since in this work we need to treat whole sentences rather than just noun phrases, some additional considerations are necessary:
 \begin{itemize}
-  \item Whereas in \cite {DM12} it was implicit that noun phrases grew from their noun core, for full sentences each category must have its own \emph{head}. These heads follow closely from the grammar itself and the obligation constraints it implies. In our case, we have:
+  \item Whereas in \cite {DM12} it was implicit that noun phrases grew from their head nouns, for full sentences each phrasal category must explicitly have its own \emph{head}. These heads follow closely from the grammar itself and the obligation constraints it implies. In our case, we have:
 \begin{verbatim}  head(n, np). head(pn, np). head(v, vp). head(vp, sentence).\end{verbatim}
   
   \item For full sentences, the extra complexity requires phrases to be treated in a specific ordering. For example, because a verb phrase can contain noun phrases, noun phrases should be parsed before verb phrases, and verb phrases should be parsed before sentences. The ordering is currently specified as part of the grammar, though it could be induced from the directed constituency graph implied by a grammar. For the sentences we consider, the following order is used:
@@ -289,7 +289,7 @@ Since the specifics of the algorithm can get a little involved, it is perhaps he
 \end{enumerate}
 
 \begin{example}
-  Consider our running example of ``john eats an apple'' again and the following context free grammar (stated in bottom-up fashion), $\PN \to \NP$; $D, N \to \NP$; $V,\NP \to \VP$; $N, \VP \to S$, where $\PN$ is a proper noun and $S$ a sentence. \N and \PN are the heads of \NP, \V of \VP and \VP of \Se.
+  Consider our running example of ``john eats an apple'' again and the following context free grammar (stated in bottom-up fashion), $\PN \to \NP$; $D, N \to \NP$; $V,\NP \to \VP$; $NP, \VP \to S$, where $\PN$ is a proper noun and $S$ a sentence. \N and \PN are the heads of \NP, \V of \VP and \VP of \Se.
   
   The parse ordering associated with these rules is $\NP,\VP,\Se$. We will consider the constraints induced from the grammar rather than the grammar itself.
 
@@ -311,7 +311,7 @@ Other constraints, which we call \emph{changing} constraints, can change in thei
 more category into a given phrase for which, without this added category, the
 constraint had an opposite value. Thus, for ``a red apple'',  at the point in which ``red'' and ``apple'' have been grouped into a noun phrase, this noun phrase will fail the constraint that a noun requires a determiner. However subsequent expansion of the noun phrase into ``a red apple'' will remedy the failure. This subtype of changing constraints is called \emph{recoverable}. For recoverable constraints, we simply wait until a phrase has been maximally expanded before testing whether they fail. We effect this by applying all expansion rules  before checking any recoverable constraints.
 
-For the other type of changing constraints, called \emph{filtering} constraints, the addition of one more element into a phrase might make the constraint fail where it succeeded before. As an example, while unicity of determiner holds for ``the book'', it no longer holds for ``the the book''. Since the rules that check this type of constraint are triggered only when the constraint fails (e.g. when two determiners show up inside a noun phrase), there is no need for waiting mechanisms, or for any maximal expansion to precede their checking. In this sense our approach is much more focused than previous ones. 
+For the other type of changing constraints, called \emph{filtering} constraints, the addition of one more element into a phrase might make the constraint fail where it succeeded before. As an example, while unicity of determiner holds for ``the book'', it no longer holds for ``the the book''. Since the rules that check this type of constraint are triggered only when the constraint fails (e.g. when two determiners show up inside a noun phrase), there is no need for waiting mechanisms, or for any maximal expansion to precede their checking. In this sense our approach is much more focused than previous ones, as a consequence of better fitting the constraint-solving model. 
 
 % TODO add rules here and explain order
 

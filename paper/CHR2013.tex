@@ -108,7 +108,7 @@ The idea of representing a language's grammar solely through properties between 
 
 This paper will handle full sentences, so that we will generally denote determiners by \D, nouns by \N, personal nouns by \PN, verbs by \V, noun phrases by \NP, verb phrases by \VP and sentences by \Se.
 
-\begin{example} For example, the context free rules $\NP\to D\ N$ and $\NP \to N$, which determine what a noun phrase is, can be equivalently translated into the following equivalent constraints: $\constituency{NP}{\{D, N\}}, \uniqueness{NP}{D}, \obligation{NP}{N}, \uniqueness{NP}{N}, \precedence{NP}{D}{N}, \constituency{D}{\{\}}, \constituency{N}{\{\}}$.
+\begin{example} For example, the context free rules $\NP\to D\ N$ and $\NP \to N$, which determine what a noun phrase is, can be translated into the following equivalent constraints: $\constituency{NP}{\{D, N\}}, \uniqueness{NP}{D}, \obligation{NP}{N}, \uniqueness{NP}{N}, \precedence{NP}{D}{N}, \constituency{D}{\{\}}, \constituency{N}{\{\}}$.
 \end{example}
 
 The larger number of constraints allows us to perceive and understand the grammar rules in a more detailed fashion. Furthermore, this finer granularity can be exploited: in some of the literature on PG there is the possibility of declaring some constraints as relaxable. The failure of relaxable contraints is signalled in the output, but does not block the entire sentence's analysis.  Implementations not including constraint relaxation capabilities implicitly consider all properties as relaxable.
@@ -188,7 +188,7 @@ More concretely, one expands instantiated categories, which are CHRG predicates 
             )
 \end{verbatim}
 
-Notice that the \NP inherits the attributes of the underlying \N, which is important for the dependency constraints; and that a tree is built as a side-effect from parsing.\end{example}
+Notice that the \NP inherits the attributes of the underlying \N, thus implementing their dependency constraints; and that a tree is built as a side-effect from parsing.\end{example}
 
 Since in this work we need to treat whole sentences rather than just noun phrases, some additional considerations are necessary:
 \begin{itemize}
@@ -302,10 +302,12 @@ Since no more expansions are possible for \VP{}s, a \Se is created from the \VP 
 If no constraints were relaxable, ``john eats apple'' would not parse a sentence \Se (or a \VP or even an \NP) because nouns must have determiners, i.e. $\requirement{NP}{N}{D}$. If that were relaxed, however, the entire sentence would be parsed with no further complications! This highlights the flexibility of the approach.
 \end{example}
 
-\subsection{A useful distinction: Permanent and Changing Constraints}
+\subsection{Types of constraints, and their procedural implications}
 \label{ssec:constrs}
 
-Notice that CHRG rules  for constraints such as precedence can be allowed to apply  immediately after the two constituents they involve show up in the constraint store, no matter what stage of parsing we are at.  This is because as soon as the constraint can be evaluated, its value is \emph{permanent}. Once it fails, adding new constituents to the category cannot make it succeed, since e.g. two unordered elements will remain unordered even when adding more elements around them.  Accordingly, our methodology only checks for failure of permanent constraints, regardless of at what stage they fail.
+As we have seen, our parsing algorithm's reliance on expansion from phrasal heads into allowable constituents for that phrase places  the constraints of constituency and head obligation in the category of non-relaxable, with all other constraints being relaxable.
+
+For relaxable constraints we can identify a further, useful distinction: that between permanent and changeable constraints. Notice that CHRG rules  for constraints such as precedence can be allowed to apply  immediately after the two constituents they involve show up in the constraint store, no matter what stage of parsing we are at.  This is because as soon as the constraint can be evaluated, its value is \emph{permanent}. Once it fails, adding new constituents to the category cannot make it succeed, since e.g. two unordered elements will remain unordered even when adding more elements around them.  Accordingly, our methodology only checks for failure of permanent constraints, regardless of at what stage they fail.
 
 Other constraints, which we call \emph{changing} constraints, can change in their  evaluation by the incorporation of one
 more category into a given phrase for which, without this added category, the
@@ -327,7 +329,7 @@ We have presented a novel parsing methodology inspired from Womb Grammar Parsing
 While a formal comparative complexity analysis would require a previous underlying  analysis of the disparate implementation means of the various formulations, we can intuitively trust that our two main contributions above mentioned are bound to enable a much greater degree of efficiency than  was previously possible. Roughly speaking, \cite{DB04} encodes the input PG into a set of CHRG rules that directly interpret the grammar in terms of satisfied or relaxed constraints, which are then propagated while a syntactic tree is built as a side effect. For efficiency, the implementation controls  the way in which a constraint is selected for evaluation, but still, the failure or success value of all constraints among every pair of constituents is exhaustively calculated or propagated.  \cite{BM00} resorts to heuristics but remains highly combinatorially explosive, since it involves developing a complete table of satisfied and unsatisfied constraints for every pair of categories involved. \cite{logcom13DuchierEtAl} is even more combinatorially explosive but interestingly, develops a parsing architecture with  full reliance on constraint satisfaction, using classical constraint-based techniques such as branch-and-bound to select and propagate constraint evaluations. It also allows for the relaxation of constraints, by choosing those solutions that maximize the ratio between satisfied and unsatisfied properties - there is no control over which properties are relaxable, however. 
 
 The approach in \cite{DB04}, like our own, also completes original assignments of categories with
-new categories when they are inferred, and it exploits a similar distinction between permanent and changing constraints to minimize recalculation. However, they need to explicitly inherit permanent constraints at each step, and to recalculate and eventually update at each step the satisfaction value of changing constraints. In contrast, as we have seen, our parsing methodology allows us to  simply bypass the need to inherit the value of permanent constraints (through only checking them on maximal phrases), to postpone the checking of recoverable constraints until the phrase has been identified as maximal, and to only check for filtering constraints when and if they do fail. In this sense also we obtain considerable efficiency gains.
+new categories when they are inferred, and it exploits a similar distinction between permanent and changing constraints to minimize recalculation. However, they need to explicitly inherit permanent constraints at each step, and to recalculate and eventually update at each step the satisfaction value of changing constraints. In contrast, as we have seen, our parsing methodology allows us to  simply bypass the need to inherit the value of permanent constraints (through only checking them on maximal phrases), to postpone the checking of recoverable constraints until the phrase has been identified as maximal, and to only check for filtering constraints when and if they do fail. Also in this sense we obtain considerable efficiency gains.
 
 
  

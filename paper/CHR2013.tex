@@ -108,7 +108,7 @@ The idea of representing a language's grammar solely through properties between 
 
 This paper will handle full sentences, so that we will generally denote determiners by \D, nouns by \N, personal nouns by \PN, verbs by \V, noun phrases by \NP, verb phrases by \VP and sentences by \Se.
 
-\begin{example} For example, the context free rules $\NP\to D\ N$ and $\NP \to N$, which determine what a noun phrase is, can be translated into the following equivalent constraints: $\constituency{NP}{\{D, N\}}, \uniqueness{NP}{D}, \obligation{NP}{N}, \uniqueness{NP}{N}, \precedence{NP}{D}{N}, \constituency{D}{\{\}}, \constituency{N}{\{\}}$.
+\begin{example} For example \cite{DBLP:conf/fg/DuchierDPL10}, the context free rules $\NP\to D\ N$ and $\NP \to N$, which determine what a noun phrase is, can be translated into the following equivalent constraints: $\constituency{NP}{\{D, N\}}, \uniqueness{NP}{D}, \obligation{NP}{N}, \uniqueness{NP}{N}, \precedence{NP}{D}{N}, \constituency{D}{\{\}}, \constituency{N}{\{\}}$.
 \end{example}
 
 The larger number of constraints allows us to perceive and understand the grammar rules in a more detailed fashion. Furthermore, this finer granularity can be exploited: in some of the literature on PG there is the possibility of declaring some constraints as relaxable. The failure of relaxable contraints is signalled in the output, but does not block the entire sentence's analysis.  Implementations not including constraint relaxation capabilities implicitly consider all properties as relaxable.
@@ -174,7 +174,7 @@ This is significant because deep parsing with Property Grammars is theoretically
 
 In \cite {DM12}, where we only dealt with noun phrases, constituency did not need to be checked explicitly, because it followed from a lexicon made only from noun phrase constituents. The core idea was to start the noun phrase from its head noun, and try to expand it. Expansion would fail if any of the grammatical constraints failed.
 
-More concretely, one expands instantiated categories, which are CHRG predicates of the type \texttt{iCat(Start, End, CategoryType, Attributes, Tree)}. Instantiated categories simply keep track of the location, attributes (gender and plurality) and parse tree of all categories, or phrase types, in a specific sentence (e.g. \N, \NP, etc).
+More concretely, one expands instantiated categories, which are CHRG predicates of the type \texttt{iCat(Start, End, CategoryType, Attributes, Tree)}. Instantiated categories simply keep track of the location, attributes (gender and plurality) and parse tree of all phrase types, or \emph{categories}, in a specific sentence (e.g. \N, \NP, etc).
 
 \begin{example}[Instantiated categories] \label{ex:icat} Take the noun phrase ``an apple''. Parsing it results in the following instantiated categories.
 \begin{verbatim}
@@ -188,21 +188,21 @@ More concretely, one expands instantiated categories, which are CHRG predicates 
             )
 \end{verbatim}
 
-Notice that the \NP inherits the attributes of the underlying \N, thus implementing their dependency constraints; and that a tree is built as a side-effect from parsing.\end{example}
+Notice that the \NP inherits the attributes of the underlying \N. This is useful for checking dependency constraints, which require attributes to match. Parse trees are built as a side-effect from parsing, and the trees of a leaf are much simplified.\end{example}
 
 Since in this work we need to treat whole sentences rather than just noun phrases, some additional considerations are necessary:
 \begin{itemize}
   \item Whereas in \cite {DM12} it was implicit that noun phrases grew from their head nouns, for full sentences each phrasal category must explicitly have its own \emph{head}. These heads follow closely from the grammar itself and the obligation constraints it implies. In our case, we have:
 \begin{verbatim}  head(n, np). head(pn, np). head(v, vp). head(vp, sentence).\end{verbatim}
   
-  \item For full sentences, the extra complexity requires phrases to be treated in a specific ordering. For example, because a verb phrase can contain noun phrases, noun phrases should be parsed before verb phrases, and verb phrases should be parsed before sentences. The ordering is currently specified as part of the grammar, though it could be induced from the directed constituency graph implied by a grammar. For the sentences we consider, the following order is used:
+  \item For full sentences, the extra complexity requires phrases to be treated in a specific ordering. For example, because a \VP can contain a \NP, \NP{}s should be parsed before \VP{}s, and \VP{}s should be parsed before \Se{}s. The ordering is currently specified as part of the grammar, though it could be induced from the directed constituency graph implied by a grammar. For the sentences we consider, the following order is used:
 \begin{verbatim}                  parseOrder([np,vp,sentence]).\end{verbatim}
 
 After all categories of the type at the head of the list have been parsed and expanded, the algorithm moves on to the next category.
 \begin{verbatim}               parseOrder([_|L]) <=> parseOrder(L).
 \end{verbatim}
   
-  \item While the PG formalism per se does not care about syntactic trees (it just characterizes an input sentence through its lists of satisfied and unsatisfied properties), they are important for complex sentences, and are thus built explicitly by the algorithm. Not only is this handy to the traditional way in which linguists are used to thinking of a parse result, but it is also useful to ensure that the constraints apply on immediate daughters only. For instance, consider the parse tree of ``john eats an apple'' in Figure \ref{fig:tree}. It contains two noun phrases, ``john'' and ``an apple'', but only `john'' is a direct daughter of the sentence (``an apple'' is a direct daughter of the verb phrase ``eats an apple''). Therefore, the uniqueness of a noun phrase $\NP$ in a sentence \Se, $\uniqueness{\Se}{\NP}$ does not fail, since only the direct daughter noun phrase ``john'' is identified as the sentence's noun phrase.
+  \item While the PG formalism per se does not care about syntactic trees (it just characterizes an input sentence through its lists of satisfied and unsatisfied properties), they are important for complex sentences, and are thus built explicitly by the algorithm. Not only is this handy to the traditional way in which linguists are used to thinking of a parse result, but it is also useful to ensure that the constraints apply on immediate daughters only. For instance, consider the parse tree of ``john eats an apple'' in Figure \ref{fig:tree}. It contains two noun phrases, ``john'' and ``an apple'', but only `john'' is a direct daughter of the sentence (``an apple'' is a direct daughter of the verb phrase ``eats an apple''). Therefore, the uniqueness of a noun phrase $\NP$ in a sentence \Se, $\uniqueness{\Se}{\NP}$, does not fail, since only the direct daughter noun phrase ``john'' is identified as the sentence's noun phrase.
 
 \begin{figure}[H]
 \begin{center}
@@ -242,7 +242,7 @@ iCat(N1, N2, Comp,Attr,Tree), {parseOrder([Cat|_])}
   | iCat(Cat, Attr, NewTree).
 \end{verbatim}
 
-This rule is found after the expansion and constraint satisfaction checks. This means it will only fire when \texttt{iCat(N1,N2,Comp,Attr,Tree)} is maximally expanded, it does not violate unrelaxable constraints. After the rule fires, there will be a new instantiated category, which will in turn be expanded maximally, and checked against the constraints. Once no more checks or expansions can be done on any category of the current type, the parsing moves on to the next category type given by \texttt{parseOrder\textbackslash 1}.
+This rule is found after the expansion and constraint satisfaction checks. This means it will only fire when \texttt{iCat(N1,N2,Comp,Attr,Tree)} is maximally expanded, and when it does not violate unrelaxable constraints. After the rule fires, there will be a new instantiated category, which will in turn be expanded maximally, and checked against the constraints. Once no more checks or expansions can be done on any category of the current type, the parsing moves on to the next category type given by \texttt{parseOrder\textbackslash 1}.
 
 The expansion rules are a little more verbose, but the reader should now be acquainted with most predicates used. We present here a simplified version of the left-expansion rule (the right-expansion rule is symmetric).
 
@@ -294,11 +294,11 @@ The obligation rule checks a given category for its direct daughters. Since \tex
 
 \subsection{Algorithm overview}
 
-Since the specifics of the algorithm can get a little involved, it is perhaps helpful to abstract away the rules, their positions and the order in which they fire. In fact, the algorithm is conceptually extremely simple.
+Since the specifics of the algorithm can get a little involved, it is perhaps helpful to abstract away the rules, their positions and the order in which they fire. In fact, the algorithm is conceptually simple.
 
 \begin{enumerate}
-\item If there is an instantiated category of the type being handled (e.g. \NP, \VP, \Se) that can be expanded without violating unrelaxable constraints, the expansion is carried out. Violated relaxable constraints are stored for reference.
-\item If no more expansions are possible and there is an instantiated category can be a head for the category being handled, then a new instantiated category of that type is created from the head.
+\item If there is an \texttt{iCat} of the type being handled (e.g. \NP, \VP, \Se) that can be expanded without violating unrelaxable constraints, the expansion is carried out. Violated relaxable constraints are stored for reference.
+\item If no more expansions are possible but an \texttt{iCat} can be a head for the category type being handled, then a new \texttt{iCat} of that type is created from the head.
 \item If no more expansions are possible and there are no more potential heads, the algorithm proceeds to handle the next category type.
 \end{enumerate}
 
@@ -307,11 +307,13 @@ Since the specifics of the algorithm can get a little involved, it is perhaps he
   
   The parse ordering associated with these rules is $\NP,\VP,\Se$. We will consider the constraints induced from the grammar rather than the grammar itself.
 
-The algorithm thus starts by creating the leaf instantiated categories for the \PN, \N, \D, and \V words. Then, the \NP{}s ``john'' and ``apple'' are created from the respective \PN and \N heads. The \NP ``apple'' is expandable to ``an apple'', and then no more expansions are possible for ``john'' or ``an appple', since $\constituency{NP}{\{D, N\}}$.
+The algorithm thus starts by creating the leaf \texttt{iCat}s for the \PN, \N, \D, and \V words. Then, the \NP{}s ``john'' and ``apple'' are created from the respective \PN and \N heads. The \NP ``apple'' is expandable to ``an apple'', and then no more expansions are possible for ``john'' or ``an appple', since $\constituency{NP}{\{D, N\}}$.
 
 The algorithm thus moves to \VP{}s, and create one from the \V head ``eats''. Since $\constituency{VP}{\{V, NP\}}$, the \VP is expandable to both left, for ``john'' and right, for ``an apple''. The right expansion succeeds without problems. The left expansion falsifies the precedence $\precedence{VP}{V}{NP}$, and is therefore not carried out.
 
-Since no more expansions are possible for \VP{}s, a \Se is created from the \VP and expanded to ``john'', creating the full sentence. However, suppose that $\precedence{VP}{V}{NP}$ were relaxable. Then, the \VP would expand both left and right, encompassing the whole sentence. With no more expansions possible, a sentence $S$ would be created from the \VP containing the whole sentence, thereby violating the obligation $\obligation{\Se}{\NP}$ (since the constraint requires \NP as a direct \emph{direct} daughter), and would thus be retracted. This parse would not result in a sentence. If that restriction were, in turn, relaxable, the parse would keep the \Se instead of retracting it.
+Since no more expansions are possible for \VP{}s, a \Se is created from the \VP and expanded to ``john'', creating the full sentence.
+
+However, suppose that $\precedence{VP}{V}{NP}$ were relaxable. Then, the \VP would expand both left and right, encompassing the whole sentence. With no more expansions possible, a sentence $S$ would be created from the \VP containing the whole sentence, thereby violating the obligation $\obligation{\Se}{\NP}$ (since the constraint requires \NP as a \emph{direct} daughter), and would thus be retracted. This parse would not result in a \Se, but a \NP. If the obligation restriction were, in turn, relaxable, the parse would keep the \Se instead of retracting it.
 
 If no constraints were relaxable, ``john eats apple'' would not parse a sentence \Se (or a \VP or even an \NP) because nouns must have determiners, i.e. $\requirement{NP}{N}{D}$. If that were relaxed, however, the entire sentence would be parsed with no further complications! This highlights the flexibility of the approach.
 \end{example}
@@ -353,7 +355,7 @@ new categories when they are inferred, and it exploits a similar distinction bet
 % ---- Bibliography ----
 %
 \bibliography{CHR2013}
-
+\begin{comment}
 \newpage
 \appendix
 \section{Appendix: Code, examples}
@@ -369,5 +371,5 @@ Another suggestion is running \texttt{?- doParse([jean, mange, pomme, une]).} \\
 Other suggestions are \texttt{?- doParse([jean, mange, pomme]).}, by relaxing the requirement constraint between nouns and determiners, or \texttt{?- doParse([le, jean, mange, une, pomme]).} and the related exclusion constraint between \PN and \D.
 It is also interesting to add or remove the constraint that \VP should have \NP (commented in the file), causing parsing to stop with \texttt{pomme, une} or just \texttt{pomme} with no determiner.
 
-
+\end{comment}
 \end{document}
